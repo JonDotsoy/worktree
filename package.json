@@ -2,7 +2,7 @@
   "name": "worktree",
   "displayName": "Worktree",
   "description": "Visualiza y gestiona los git worktrees desde Visual Studio Code.",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "publisher": "jondotsoy",
   "license": "MIT",
   "icon": "media/icon.png",
