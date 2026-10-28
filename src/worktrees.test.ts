@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, getBaseBranch, getCompact, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setCompact, setWorktreeDescription, setWorktreesDir, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, getCompact, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -246,5 +246,27 @@ describe("worktree descriptions", () => {
     expect((await listWorktrees(repo))[0]?.description).toBeUndefined();
     await setWorktreeDescription(repo, repo, "ok");
     expect((await listWorktrees(repo))[0]?.description).toBe("ok");
+  });
+});
+
+describe("worktree stars", () => {
+  test("are stored in the common git dir and starred worktrees sort right after the current one", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: repo });
+    const a = await createWorktree(repo, { branch: "a" });
+    await createWorktree(repo, { branch: "b" });
+
+    await setWorktreeStarred(repo, a, true);
+    const listed = await listWorktrees(repo);
+    expect(listed[0]?.current).toBe(true);
+    expect(listed[1]?.path).toBe(a);
+    expect(listed[1]?.starred).toBe(true);
+    expect(JSON.parse(readFileSync(join(repo, ".git", "_worktree_configs", "starred.json"), "utf8"))).toEqual([a]);
+
+    await setWorktreeStarred(repo, a, false);
+    expect((await listWorktrees(repo)).every((w) => !w.starred)).toBe(true);
+    await expect(setWorktreeStarred(repo, join(root, "nope"), true)).rejects.toThrow();
   });
 });
