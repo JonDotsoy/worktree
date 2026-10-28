@@ -23,8 +23,13 @@ los worktrees del repositorio abierto:
 - **Crear worktree:** formulario con rama, base y ruta opcionales.
 - **Actualización en vivo:** la lista se mantiene al día mediante SSE (Server-Sent Events);
   cuando cambian los datos de git la vista se refresca sola.
-- **Configuración:** rama base para los worktrees nuevos y carpeta base donde se crean
-  (por defecto `.worktree/`, relativa a la raíz del proyecto).
+- **Configuración:** rama base para los worktrees nuevos, carpeta base donde se crean
+  (por defecto `.worktree/`, relativa a la raíz del proyecto) y **estilo compacto**.
+- **Estilo compacto:** desde la configuración (⚙️) la lista pasa de tarjetas a filas densas:
+  rama, `current`/`principal`, ruta con `~`, tiempo relativo (al pasar el cursor, la fecha
+  completa), descripción resumida en una línea y las acciones de copiar y editar la descripción.
+  Doble clic, <kbd>Enter</kbd> y el menú **Abrir** funcionan igual. Se guarda sola y se
+  refleja en las demás ventanas del repositorio.
 
 ## Capturas
 
@@ -39,6 +44,7 @@ los worktrees del repositorio abierto:
     <td align="center" valign="top"><img src="docs/screenshots/copiar-ruta.png" alt="Copiar ruta" width="100%"><br><sub>Copiar ruta</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/estados.png" alt="Estados" width="100%"><br><sub>Estados y rutas con ~</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/descripcion.png" alt="Descripción" width="100%"><br><sub>Descripción por worktree</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/estilo-compacto.png" alt="Estilo compacto" width="100%"><br><sub>Estilo compacto</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-formulario.png" alt="Crear worktree" width="100%"><br><sub>Crear worktree</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-resultado.png" alt="Worktree creado" width="100%"><br><sub>Worktree creado</sub></td>
   </tr>

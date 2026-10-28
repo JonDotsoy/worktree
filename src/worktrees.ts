@@ -163,6 +163,8 @@ async function settingsFile(cwd: string): Promise<string> {
 interface Settings {
   baseBranch?: string;
   worktreesDir?: string;
+  /** Show the list as dense rows instead of cards. */
+  compact?: boolean;
 }
 
 async function readSettings(cwd: string): Promise<Settings> {
@@ -179,7 +181,7 @@ export async function getBaseBranch(cwd: string): Promise<string> {
   return typeof baseBranch === "string" ? baseBranch : "";
 }
 
-async function writeSetting(cwd: string, key: keyof Settings, value: string): Promise<void> {
+async function writeSetting<K extends keyof Settings>(cwd: string, key: K, value: Settings[K]): Promise<void> {
   const file = await settingsFile(cwd);
   const settings = await readSettings(cwd);
   if (value) settings[key] = value;
@@ -211,6 +213,16 @@ export async function setWorktreesDir(cwd: string, value: string): Promise<void>
   const dir = value.trim();
   if (dir === DEFAULT_WORKTREES_DIR || dir === `${DEFAULT_WORKTREES_DIR}/`) return writeSetting(cwd, "worktreesDir", "");
   await writeSetting(cwd, "worktreesDir", dir);
+}
+
+/** Whether the list is shown as compact rows instead of cards. */
+export async function getCompact(cwd: string): Promise<boolean> {
+  return (await readSettings(cwd)).compact === true;
+}
+
+/** Stores the list style; `false` removes the key, going back to cards. */
+export async function setCompact(cwd: string, value: boolean): Promise<void> {
+  await writeSetting(cwd, "compact", value);
 }
 
 /** Longest description accepted, in characters. */

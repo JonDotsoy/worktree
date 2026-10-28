@@ -242,6 +242,43 @@
       font-weight: 500;
     }
     .menu button:hover, .menu button:focus-visible { background: var(--menu-hover); color: var(--menu-hover-fg); outline: none; }
+    label.check { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
+    label.check input { margin: 0; accent-color: var(--accent); }
+    label.check small { flex-basis: 100%; }
+    /* Compact style: one dense row per worktree instead of a card. */
+    .list.compact { gap: 0; }
+    .row {
+      padding: 4px 8px;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      border-left: 2px solid transparent;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .row.is-current { border-left-color: var(--focus); }
+    .row .branch { flex-wrap: nowrap; gap: 6px; }
+    .row .branch .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
+    .row .badge { flex: none; padding: 0 6px; font-size: 11px; }
+    .row .copy { margin-top: 0; }
+    .row-meta { display: flex; align-items: baseline; gap: 8px; }
+    .row-meta .path {
+      flex: 1;
+      min-width: 0;
+      margin-top: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row-meta .date { flex: none; margin-top: 0; font-size: 11px; white-space: nowrap; }
+    .row .description { margin-top: 0; }
+    .row .description:empty { display: none; }
+    .row .description-text p {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .row .description textarea { margin-top: 2px; }
     .message { color: var(--fg-muted); font-size: 13px; }
     .message.error { color: var(--error); }
     code { font-family: var(--font-mono); font-size: 12px; }
@@ -265,6 +302,11 @@
     <label>Carpeta base de worktrees
       <input name="worktreesDir" placeholder=".worktree" autocomplete="off">
       <small>Relativa a la raíz del proyecto. Un worktree "foo" queda en <code>&lt;carpeta&gt;/foo</code>. Por defecto, <code>.worktree</code>.</small>
+    </label>
+    <label class="check">
+      <input type="checkbox" name="compact">
+      Estilo compacto
+      <small>Muestra cada worktree en una fila densa en lugar de una tarjeta.</small>
     </label>
     <p id="settings-message" class="message" hidden></p>
     <div class="actions">
@@ -319,10 +361,16 @@
       return node;
     }
 
+    /** List style (cards or compact rows) and the last worktrees received, to redraw when the style changes. */
+    let compactMode = false;
+    let lastWorktrees = [];
+
     function render(worktrees) {
+      lastWorktrees = worktrees;
+      list.classList.toggle("compact", compactMode);
       list.replaceChildren(
         ...worktrees.map((worktree) => {
-          const item = el("li", "card worktree");
+          const item = el("li", compactMode ? "row worktree" : "card worktree");
           item.tabIndex = 0;
           item.classList.toggle("is-current", Boolean(worktree.current));
           item.title = "Doble clic para abrir";
@@ -336,21 +384,35 @@
           });
           const title = el("div", "branch");
           const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
-          title.append(el("span", "", name));
+          title.append(el("span", "name", name));
           if (worktree.current) title.append(el("span", "badge current", "current"));
           if (worktree.main) title.append(el("span", "badge main", "principal"));
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
-          const row = el("div", "path-row");
-          row.append(el("div", "path", tildify(worktree.path)), copyButton(worktree.path));
-          item.append(title, row, descriptionBlock(worktree));
+          const path = el("div", "path", tildify(worktree.path));
+          const description = descriptionBlock(worktree, compactMode);
+          let date;
           if (worktree.committedAt) {
-            const date = el("div", "date", relativeTime(worktree.committedAt));
+            date = el("div", "date", relativeTime(worktree.committedAt, compactMode));
             // Hovering swaps the relative time for the full date and time.
             date.addEventListener("mouseenter", () => (date.textContent = fullDate(worktree.committedAt)));
-            date.addEventListener("mouseleave", () => (date.textContent = relativeTime(worktree.committedAt)));
-            item.append(date);
+            date.addEventListener("mouseleave", () => (date.textContent = relativeTime(worktree.committedAt, compactMode)));
+          }
+          if (compactMode) {
+            const edit = iconButton("edit", worktree.description ? "Editar descripción" : "Agregar descripción", description.startEdit);
+            title.append(copyButton(worktree.path), edit);
+            const meta = el("div", "row-meta");
+            meta.append(path);
+            if (date) meta.append(date);
+            // The path is cut with an ellipsis, so keep the full path readable on hover.
+            path.title = worktree.path;
+            item.append(title, meta, description);
+          } else {
+            const row = el("div", "path-row");
+            row.append(path, copyButton(worktree.path));
+            item.append(title, row, description);
+            if (date) item.append(date);
           }
           return item;
         }),
@@ -368,11 +430,21 @@
         return;
       }
       home = data.home ?? home;
+      setCompactMode(data.compact === true);
       render(data.worktrees);
     }
 
-    /** Description of a worktree: text with an edit icon, or an "add" button when empty. */
-    function descriptionBlock(worktree) {
+    /** Switches between cards and rows; the settings checkbox follows, so other instances stay in sync. */
+    function setCompactMode(value) {
+      compactMode = value;
+      document.querySelector("#settings [name=compact]").checked = value;
+    }
+
+    /**
+     * Description of a worktree: text with an edit icon, or an "add" button when empty.
+     * In compact rows only the text is shown (one line); the row's own edit button calls `startEdit`.
+     */
+    function descriptionBlock(worktree, compact) {
       const block = el("div", "description");
       for (const type of ["dblclick", "keydown", "contextmenu"]) block.addEventListener(type, (event) => event.stopPropagation());
       const show = () => {
@@ -427,7 +499,15 @@
       };
       const view = () => {
         const wrap = el("div");
-        if (worktree.description) {
+        if (compact) {
+          if (worktree.description) {
+            const text = el("p", "", worktree.description);
+            text.title = worktree.description;
+            const row = el("div", "description-text");
+            row.append(text);
+            wrap.append(row);
+          }
+        } else if (worktree.description) {
           const text = el("div", "description-text");
           const edit_ = iconButton("edit", "Editar descripción", edit);
           edit_.classList.add("edit");
@@ -447,6 +527,7 @@
         return wrap;
       };
       block.append(...view().children);
+      block.startEdit = edit;
       return block;
     }
 
@@ -471,12 +552,14 @@
       return new Date(seconds * 1000).toLocaleString("es", { dateStyle: "full", timeStyle: "long" });
     }
 
-    function relativeTime(seconds) {
+    /** `Último commit hace 2 horas`; compact rows drop the prefix (`hace 2 horas`). */
+    function relativeTime(seconds, compact) {
+      const prefix = compact ? "" : "Último commit ";
       const diff = seconds - Date.now() / 1000;
       for (const [unit, size] of units) {
-        if (Math.abs(diff) >= size) return `Último commit ${rtf.format(Math.round(diff / size), unit)}`;
+        if (Math.abs(diff) >= size) return `${prefix}${rtf.format(Math.round(diff / size), unit)}`;
       }
-      return "Último commit hace un momento";
+      return `${prefix}hace un momento`;
     }
 
     const ICONS = {
@@ -627,8 +710,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         toggleForm(false);
-        home = data.home ?? home;
-        render(data.worktrees);
+        showSnapshot(data);
         message.className = "message";
         message.textContent = `Worktree creado en ${tildify(data.path)}`;
       } catch (error) {
@@ -646,7 +728,7 @@
     const settingsMessage = document.getElementById("settings-message");
     const mainView = document.getElementById("main-view");
 
-    const settingsState = { baseBranch: "", worktreesDir: ".worktree" };
+    const settingsState = { baseBranch: "", worktreesDir: ".worktree", compact: false };
 
     /** Same slug rule as the backend (`branchSlug`), so the placeholder matches the real path. */
     function slug(branch) {
@@ -673,6 +755,12 @@
       settings.elements.worktreesDir.value = data.worktreesDir;
       settingsState.baseBranch = data.baseBranch;
       settingsState.worktreesDir = data.worktreesDir;
+      settingsState.compact = data.compact === true;
+      settings.elements.compact.checked = settingsState.compact;
+      if (compactMode !== settingsState.compact) {
+        compactMode = settingsState.compact;
+        render(lastWorktrees);
+      }
       updateFormDefaults();
     }
 
@@ -706,7 +794,7 @@
         const response = await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [field.name]: field.value }),
+          body: JSON.stringify({ [field.name]: field.type === "checkbox" ? field.checked : field.value }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
@@ -719,7 +807,7 @@
       }
     }
 
-    for (const name of ["baseBranch", "worktreesDir"]) {
+    for (const name of ["baseBranch", "worktreesDir", "compact"]) {
       settings.elements[name].addEventListener("change", (event) => saveSettings(event.target));
     }
 

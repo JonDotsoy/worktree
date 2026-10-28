@@ -40,3 +40,23 @@ test("PUT /api/worktrees/description validates its input", async () => {
   expect((await put(trusted(), { path: "/nope", description: "x" })).status).toBe(400);
   expect((await put(trusted(), { path: repo, description: "x".repeat(501) })).status).toBe(400);
 });
+
+const putSettings = (headers: Record<string, string>, body: unknown) =>
+  fetch(`${server.url}api/settings`, { method: "PUT", headers, body: JSON.stringify(body) });
+
+test("PUT /api/settings saves the compact style, returns it and it reaches the worktree list", async () => {
+  const response = await putSettings(trusted(), { compact: true });
+  expect(response.status).toBe(200);
+  expect(((await response.json()) as { compact: boolean }).compact).toBe(true);
+  expect(((await (await fetch(`${server.url}api/worktrees`)).json()) as { compact: boolean }).compact).toBe(true);
+
+  // Anything that is not a boolean is ignored.
+  await putSettings(trusted(), { compact: "no" });
+  expect(((await (await fetch(`${server.url}api/settings`)).json()) as { compact: boolean }).compact).toBe(true);
+
+  expect(((await (await putSettings(trusted(), { compact: false })).json()) as { compact: boolean }).compact).toBe(false);
+});
+
+test("PUT /api/settings requires the same origin", async () => {
+  expect((await putSettings({ "Content-Type": "application/json" }, { compact: true })).status).toBe(403);
+});

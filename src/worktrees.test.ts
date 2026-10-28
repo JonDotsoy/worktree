@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, getBaseBranch, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setWorktreeDescription, setWorktreesDir, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, getCompact, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setCompact, setWorktreeDescription, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -173,6 +173,25 @@ describe("base branch setting", () => {
     expect(await createWorktree(repo, { branch: "other" })).toBe(join(root, "trees", "other"));
     await setWorktreesDir(repo, "");
     expect(await getWorktreesDir(repo)).toBe(".worktree");
+  });
+});
+
+describe("compact style setting", () => {
+  test("is stored next to the other settings and removed when turned off", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    const file = join(repo, ".git", "_worktree_configs", "settings.json");
+
+    expect(await getCompact(repo)).toBe(false);
+    await setCompact(repo, true);
+    expect(await getCompact(repo)).toBe(true);
+    await setWorktreesDir(repo, "../trees");
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ compact: true, worktreesDir: "../trees" });
+
+    await setCompact(repo, false);
+    expect(await getCompact(repo)).toBe(false);
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ worktreesDir: "../trees" });
   });
 });
 

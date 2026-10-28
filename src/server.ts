@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setWorktreeDescription, setWorktreesDir } from "./worktrees";
+import { createWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -48,7 +48,7 @@ async function streamWorktrees(req: IncomingMessage, res: ServerResponse, cwd: s
       return;
     }
     try {
-      const payload = { cwd, home: homedir(), worktrees: await listWorktrees(cwd) };
+      const payload = { cwd, home: homedir(), compact: await getCompact(cwd), worktrees: await listWorktrees(cwd) };
       const json = JSON.stringify(payload);
       if (json === last || closed) return;
       last = json;
@@ -139,9 +139,10 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             sendJson(403, { error: "Forbidden" });
             return;
           }
-          const input = (await readJson(req)) as { baseBranch?: unknown; worktreesDir?: unknown };
+          const input = (await readJson(req)) as { baseBranch?: unknown; worktreesDir?: unknown; compact?: unknown };
           if (typeof input.baseBranch === "string") await setBaseBranch(cwd, input.baseBranch);
           if (typeof input.worktreesDir === "string") await setWorktreesDir(cwd, input.worktreesDir);
+          if (typeof input.compact === "boolean") await setCompact(cwd, input.compact);
         } else if (req.method !== "GET") {
           sendJson(405, { error: "Method not allowed" });
           return;
@@ -149,6 +150,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
         sendJson(200, {
           baseBranch: await getBaseBranch(cwd),
           worktreesDir: await getWorktreesDir(cwd),
+          compact: await getCompact(cwd),
           branches: await listBranches(cwd),
         });
       } catch (error) {
@@ -204,7 +206,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             sendJson(400, { error: error instanceof Error ? error.message : String(error) });
             return;
           }
-          sendJson(200, { cwd, home: homedir(), worktrees: await listWorktrees(cwd) });
+          sendJson(200, { cwd, home: homedir(), compact: await getCompact(cwd), worktrees: await listWorktrees(cwd) });
           return;
         }
         if (req.method === "POST") {
@@ -215,10 +217,10 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             base: asString(input.base),
             path: asString(input.path),
           });
-          sendJson(201, { cwd, home: homedir(), path, worktrees: await listWorktrees(cwd) });
+          sendJson(201, { cwd, home: homedir(), compact: await getCompact(cwd), path, worktrees: await listWorktrees(cwd) });
           return;
         }
-        sendJson(200, { cwd, home: homedir(), worktrees: await listWorktrees(cwd) });
+        sendJson(200, { cwd, home: homedir(), compact: await getCompact(cwd), worktrees: await listWorktrees(cwd) });
       } catch (error) {
         sendJson(500, { cwd, error: error instanceof Error ? error.message : String(error) });
       }
