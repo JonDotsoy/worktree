@@ -182,7 +182,6 @@
   <div class="header">
     <h1>Worktree</h1>
     <div class="actions">
-      <button id="refresh" type="button">Actualizar</button>
       <button id="create" type="button" class="primary">Crear worktree</button>
     </div>
   </div>
@@ -370,21 +369,24 @@
     addEventListener("blur", hideMenu);
     addEventListener("scroll", hideMenu, true);
 
-    async function load() {
-      message.className = "message";
-      message.textContent = "Cargando…";
-      try {
-        const response = await fetch("/api/worktrees");
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
+    /** Live list: the server pushes a new snapshot whenever the worktrees change. */
+    function listen() {
+      const source = new EventSource("/api/worktrees/events");
+      source.addEventListener("worktrees", (event) => {
+        const data = JSON.parse(event.data);
         home = data.home ?? home;
         render(data.worktrees);
+        message.className = "message";
         message.textContent = `${data.worktrees.length} worktree(s) en ${tildify(data.cwd)}`;
-      } catch (error) {
+      });
+      source.addEventListener("failure", (event) => {
         list.replaceChildren();
         message.className = "message error";
-        message.textContent = error.message;
-      }
+        message.textContent = JSON.parse(event.data).error;
+      });
+      source.addEventListener("error", () => {
+        if (source.readyState === EventSource.CONNECTING) message.textContent = "Reconectando…";
+      });
     }
 
     const form = document.getElementById("create-form");
@@ -425,8 +427,7 @@
 
     document.getElementById("create").addEventListener("click", () => toggleForm(form.hidden));
     document.getElementById("cancel").addEventListener("click", () => toggleForm(false));
-    document.getElementById("refresh").addEventListener("click", load);
-    load();
+    listen();
   </script>
 </body>
 </html>
