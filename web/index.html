@@ -206,7 +206,6 @@
     </label>
     <p id="settings-message" class="message" hidden></p>
     <div class="actions">
-      <button type="submit" class="primary">Guardar</button>
       <button type="button" id="settings-close">Volver</button>
     </div>
   </form>
@@ -491,10 +490,11 @@
       }
     }
 
-    settings.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const submit = settings.querySelector("button[type=submit]");
-      submit.disabled = true;
+    // Saves as soon as the selection changes; there is no save button.
+    settings.addEventListener("submit", (event) => event.preventDefault());
+    settings.elements.baseBranch.addEventListener("change", async () => {
+      const select = settings.elements.baseBranch;
+      select.disabled = true;
       try {
         const response = await fetch("/api/settings", {
           method: "PUT",
@@ -504,11 +504,11 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         applySettings(data);
-        showSettingsMessage("Guardado.", false);
+        showSettingsMessage("Guardado automáticamente.", false);
       } catch (error) {
         showSettingsMessage(error.message, true);
       } finally {
-        submit.disabled = false;
+        select.disabled = false;
       }
     });
 
