@@ -78,7 +78,18 @@
     button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
     button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     button:disabled { opacity: 0.6; cursor: progress; }
-    button.icon { padding: 4px 8px; }
+    button:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
+    button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; }
+    .ico {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .actions { display: flex; gap: 8px; }
     form.card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
     form[hidden], #main-view[hidden] { display: none; }
@@ -135,16 +146,19 @@
     .copy {
       flex: none;
       margin-top: 4px;
-      padding: 0 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px;
       border: 0;
       border-radius: 4px;
       background: transparent;
-      font-size: 12px;
-      line-height: 1.4;
+      color: var(--fg-muted);
       cursor: pointer;
-      opacity: 0.6;
     }
-    .copy:hover, .copy:focus-visible { opacity: 1; }
+    .copy .ico { width: 14px; height: 14px; }
+    .copy:hover, .copy:focus-visible { background: var(--hover-bg); color: var(--fg-strong); }
+    .copy.copied, .copy.copied:hover { color: var(--vscode-testing-iconPassed, #388a34); }
     .badge {
       padding: 0 8px;
       border-radius: 56px;
@@ -194,7 +208,7 @@
   <div class="header">
     <h1>Worktree</h1>
     <div class="actions">
-      <button id="settings-toggle" type="button" class="icon" title="Configuración" aria-label="Configuración">⚙️</button>
+      <button id="settings-toggle" type="button" class="icon" title="Configuración" aria-label="Configuración"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <button id="create" type="button" class="primary">Crear worktree</button>
     </div>
   </div>
@@ -313,9 +327,20 @@
       return "Último commit hace un momento";
     }
 
-    /** Copies the real (absolute) path; the button shows ✅ briefly on success. */
+    const ICONS = {
+      copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+      check: '<polyline points="20 6 9 17 4 12"/>',
+    };
+
+    /** Inline SVG icon; it draws with `currentColor`, so it follows the VS Code theme. */
+    function setIcon(button, name) {
+      button.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+    }
+
+    /** Copies the real (absolute) path; the button swaps to a check icon briefly on success. */
     function copyButton(path) {
-      const button = el("button", "copy", "📋");
+      const button = el("button", "copy");
+      setIcon(button, "copy");
       button.type = "button";
       button.title = "Copiar ruta";
       button.setAttribute("aria-label", "Copiar ruta");
@@ -323,8 +348,12 @@
       button.addEventListener("click", async (event) => {
         event.stopPropagation();
         if (!(await copyText(path))) return;
-        button.textContent = "✅";
-        setTimeout(() => (button.textContent = "📋"), 1200);
+        setIcon(button, "check");
+        button.classList.add("copied");
+        setTimeout(() => {
+          setIcon(button, "copy");
+          button.classList.remove("copied");
+        }, 1200);
       });
       return button;
     }
