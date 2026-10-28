@@ -69,6 +69,8 @@ describe("createWorktree", () => {
     const repo = initRepo();
     const path = await createWorktree(repo, { branch: "feature/login" });
     expect(path).toBe(join(repo, ".worktree", "feature-login"));
+    expect(readFileSync(join(repo, ".worktree", ".gitignore"), "utf8")).toBe("*\n");
+    expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo }).toString()).toBe("");
     const worktrees = await listWorktrees(repo);
     expect(worktrees.map((w) => [w.path, w.branch])).toEqual([
       [repo, "main"],

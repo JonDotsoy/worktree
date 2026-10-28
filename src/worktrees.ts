@@ -212,6 +212,14 @@ export async function listBranches(cwd: string): Promise<string[]> {
   return out.split("\n").filter((name) => name && !name.endsWith("/HEAD"));
 }
 
+/** Creates the default worktrees folder with a `.gitignore` of `*`, so git never lists its contents. */
+async function ensureIgnoredDir(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, ".gitignore"), "*\n", { flag: "wx" }).catch((error) => {
+    if (error?.code !== "EEXIST") throw error;
+  });
+}
+
 /** Runs `git worktree add` and returns the path of the new worktree. */
 export async function createWorktree(cwd: string, input: CreateWorktreeInput): Promise<string> {
   const branch = input.branch.trim();
@@ -221,9 +229,14 @@ export async function createWorktree(cwd: string, input: CreateWorktreeInput): P
   await git(cwd, ["check-ref-format", "--branch", branch]);
 
   const main = (await listWorktrees(cwd)).find((w) => w.main);
-  const path = input.path?.trim()
-    ? resolve(cwd, input.path.trim())
-    : defaultWorktreePath(main?.path ?? cwd, branch, await getWorktreesDir(cwd));
+  let path: string;
+  if (input.path?.trim()) {
+    path = resolve(cwd, input.path.trim());
+  } else {
+    const dir = await getWorktreesDir(cwd);
+    path = defaultWorktreePath(main?.path ?? cwd, branch, dir);
+    if (dir === DEFAULT_WORKTREES_DIR) await ensureIgnoredDir(resolve(main?.path ?? cwd, dir));
+  }
 
   const args = (await branchExists(cwd, branch))
     ? ["worktree", "add", "--", path, branch]
