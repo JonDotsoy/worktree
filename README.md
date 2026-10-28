@@ -114,3 +114,7 @@ workflow:
 5. Crea el release en GitHub con el `.vsix` adjunto.
 
 Para empaquetar localmente: `bun run package`.
+
+## Licencia
+
+[MIT](LICENSE) © 2026 [Jonathan Delgado](https://jon.soy)
