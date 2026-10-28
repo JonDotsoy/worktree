@@ -104,6 +104,7 @@
       color: var(--vscode-input-foreground, var(--fg));
       font: 13px var(--font-mono);
     }
+    #search { width: 100%; box-sizing: border-box; margin: 4px 0 8px; font-family: var(--font-sans); }
     select {
       padding: 6px 10px;
       border: 1px solid var(--vscode-input-border, var(--border));
@@ -371,7 +372,9 @@
       <button type="button" id="cancel">Cancelar</button>
     </div>
   </form>
+  <input id="search" type="search" placeholder="Buscar por rama, ruta o descripción" aria-label="Buscar worktrees" autocomplete="off" spellcheck="false">
   <p id="message" class="message">Cargando…</p>
+  <p id="empty" class="message" hidden>Ningún worktree coincide con la búsqueda.</p>
   <ul id="list" class="list"></ul>
   </div>
   <div id="menu" class="menu" role="menu" hidden>
@@ -420,8 +423,47 @@
     let compactMode = false;
     let lastWorktrees = [];
 
-    function render(worktrees) {
-      lastWorktrees = worktrees;
+    /** Fuse.js (fuzzy search) is loaded on demand; until it arrives, or if it fails, a plain substring match is used. */
+    let Fuse;
+    import("/vendor/fuse.basic.min.mjs")
+      .then((module) => {
+        Fuse = module.default;
+        if (query) render(lastWorktrees);
+      })
+      .catch(() => {});
+
+    const search = document.getElementById("search");
+    const empty = document.getElementById("empty");
+    let query = "";
+
+    /** Keeps the worktrees matching the search box, best match first; without a query, the list as is. */
+    function filterWorktrees(worktrees) {
+      const text = query.trim();
+      if (!text) return worktrees;
+      if (Fuse) {
+        const fuse = new Fuse(worktrees, { keys: ["branch", "path", "description", "head"], threshold: 0.35, ignoreLocation: true });
+        return fuse.search(text).map((result) => result.item);
+      }
+      const needle = text.toLowerCase();
+      return worktrees.filter((w) => [w.branch, w.path, w.description, w.head].some((value) => value?.toLowerCase().includes(needle)));
+    }
+
+    search.addEventListener("input", () => {
+      query = search.value;
+      render(lastWorktrees);
+    });
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && search.value) {
+        event.preventDefault();
+        search.value = query = "";
+        render(lastWorktrees);
+      }
+    });
+
+    function render(all) {
+      lastWorktrees = all;
+      const worktrees = filterWorktrees(all);
+      empty.hidden = worktrees.length > 0 || all.length === 0;
       list.classList.toggle("compact", compactMode);
       list.replaceChildren(
         ...worktrees.map((worktree) => {

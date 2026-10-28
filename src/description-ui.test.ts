@@ -149,3 +149,29 @@ test("el menú agrega y quita la estrella según el estado", async () => {
   await page.locator("#list li", { hasText: "feat/x" }).locator("button.star.on").waitFor({ state: "detached" });
   await page.close();
 });
+
+test("el buscador filtra los worktrees con Fuse.js, tolera errores de tipeo y Esc lo limpia", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  await page.locator("#list li", { hasText: "feat/x" }).waitFor();
+  expect(await page.locator("#list li").count()).toBeGreaterThan(1);
+
+  await page.locator("#search").fill("feat/x");
+  await page.waitForFunction("document.querySelectorAll('#list li').length === 1");
+  expect(await page.locator("#list li").textContent()).toContain("feat/x");
+
+  // Fuzzy: a typo still finds it, and so does a piece of the path.
+  await page.locator("#search").fill("fet/x");
+  await page.waitForFunction("document.querySelectorAll('#list li').length === 1");
+  await page.locator("#search").fill("app-x");
+  await page.waitForFunction("document.querySelectorAll('#list li').length === 1");
+
+  await page.locator("#search").fill("zzzzqqqq");
+  await page.waitForFunction("document.querySelectorAll('#list li').length === 0");
+  expect(await page.locator("#empty").isVisible()).toBe(true);
+
+  await page.locator("#search").press("Escape");
+  await page.waitForFunction("document.querySelectorAll('#list li').length > 1");
+  expect(await page.locator("#empty").isVisible()).toBe(false);
+  await page.close();
+});

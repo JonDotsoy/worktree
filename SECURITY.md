@@ -40,7 +40,7 @@ The extension **does not modify** your source files or your VS Code settings. Th
 
 - `.git/_worktree_configs/settings.json`, for the base branch, the worktrees folder and the list style.
 - `.git/_worktree_configs/descriptions.json`, for the descriptions shown on each worktree card.
-- The static files in `web/` inside the extension, which the local server serves.
+- The static files in `web/` inside the extension, which the local server serves. That includes `web/vendor/fuse.basic.min.mjs`, a copy of [Fuse.js](https://www.fusejs.io/) (Apache-2.0) used for the search box; it runs only in the page, filters the list already in memory and makes no requests. `bun run vendor` refreshes it from the `fuse.js` dev dependency.
 - The output of `git`, which is where all worktree and branch information comes from.
 - It watches the common git directory with `fs.watch` (recursive) to refresh the list when it changes. It does not read the contents of those files: it only reacts to the event and runs `git` again.
 
