@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { startWebServer, type WebServer } from "./server";
 
 class WorktreeViewProvider implements vscode.WebviewViewProvider {
@@ -48,11 +49,12 @@ async function openInVSCode(path: string): Promise<void> {
 
 function renderFrame(webview: vscode.Webview, src: string): string {
   const origin = new URL(src).origin;
+  const nonce = randomBytes(16).toString("base64");
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; style-src ${webview.cspSource} 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body, iframe { margin: 0; padding: 0; width: 100%; height: 100%; border: 0; overflow: hidden; }
@@ -60,6 +62,25 @@ function renderFrame(webview: vscode.Webview, src: string): string {
 </head>
 <body>
   <iframe src="${src}" title="Worktree"></iframe>
+  <script nonce="${nonce}">
+    // The iframe is served from another origin, so it does not inherit the --vscode-*
+    // variables VS Code injects here. Forward them, and again on every theme change.
+    const frame = document.querySelector("iframe");
+    const targetOrigin = ${JSON.stringify(origin)};
+    function sendTheme() {
+      const style = document.documentElement.style;
+      const vars = {};
+      for (let i = 0; i < style.length; i++) {
+        const name = style[i];
+        if (name.startsWith("--vscode-")) vars[name] = style.getPropertyValue(name);
+      }
+      const kind = document.body.dataset.vscodeThemeKind;
+      frame.contentWindow?.postMessage({ type: "vscode-theme", kind, vars }, targetOrigin);
+    }
+    frame.addEventListener("load", sendTheme);
+    new MutationObserver(sendTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    new MutationObserver(sendTheme).observe(document.body, { attributes: true, attributeFilter: ["class", "data-vscode-theme-kind"] });
+  </script>
 </body>
 </html>`;
 }
