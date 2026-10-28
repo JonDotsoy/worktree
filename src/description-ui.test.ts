@@ -93,3 +93,22 @@ for (const compact of [false, true]) {
     await page.close();
   });
 }
+
+test("el menú se abre con el teclado, se recorre con las flechas y devuelve el foco al cerrar", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  const item = page.locator("#list li", { hasText: "feat/x" });
+  await item.waitFor();
+  await item.focus();
+  await page.keyboard.press("Shift+F10");
+  await page.locator("#menu").waitFor();
+  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-open");
+  await page.keyboard.press("ArrowDown");
+  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-delete");
+  await page.keyboard.press("ArrowDown");
+  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-open");
+  await page.keyboard.press("Escape");
+  expect(await page.locator("#menu").isVisible()).toBe(false);
+  expect(await page.evaluate("document.activeElement?.textContent?.includes('feat/x')")).toBe(true);
+  await page.close();
+});
