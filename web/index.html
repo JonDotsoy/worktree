@@ -347,7 +347,9 @@
           item.append(title, row, descriptionBlock(worktree));
           if (worktree.committedAt) {
             const date = el("div", "date", relativeTime(worktree.committedAt));
-            date.title = fullDate(worktree.committedAt);
+            // Hovering swaps the relative time for the full date and time.
+            date.addEventListener("mouseenter", () => (date.textContent = fullDate(worktree.committedAt)));
+            date.addEventListener("mouseleave", () => (date.textContent = relativeTime(worktree.committedAt)));
             item.append(date);
           }
           return item;
@@ -464,7 +466,7 @@
     const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
     const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
 
-    /** Full local date and time with the time zone, shown as a tooltip. */
+    /** Full local date and time with the time zone, shown while hovering the relative time. */
     function fullDate(seconds) {
       return new Date(seconds * 1000).toLocaleString("es", { dateStyle: "full", timeStyle: "long" });
     }

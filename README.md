@@ -11,7 +11,7 @@ Worktree agrega un icono a la barra de actividades de VS Code con una vista que 
 los worktrees del repositorio abierto:
 
 - **Ordenados por actividad:** del commit más reciente al más antiguo, con la rama (o el
-  commit si está *detached*), la ruta y la fecha del último commit.
+  commit si está *detached*), la ruta y la fecha del último commit. Al pasar el cursor sobre la fecha relativa se muestra la fecha y hora completas.
 - **Worktree actual destacado:** el worktree de la ventana en la que estás se marca con la
   etiqueta `current`; el principal lleva la etiqueta `principal`.
 - **Abrir:** doble clic sobre un worktree, o clic secundario → **Abrir**, lo abre en una

@@ -99,6 +99,8 @@ try {
   await page.locator("h1").click();
   await page.locator("#list li", { hasText: "Rama estable" }).waitFor();
   await shot(page, "descripcion");
+  await page.locator("#list li", { hasText: "fix/bug" }).locator(".date").hover();
+  await shot(page, "fecha-completa");
   await setWorktreeDescription(app, app, "");
   await page.close();
 
