@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Worktree</title>
+  <style>
+    :root {
+      --color-lime-spark: #bfff5a;
+      --color-paper-white: #fcfcfd;
+      --color-obsidian: #0a0d16;
+      --color-carbon: #151720;
+      --color-pewter: #6b6d72;
+      --color-graphite: #474950;
+      --color-cobalt-signal: #1a67fd;
+      --color-midnight-ink: #1d2130;
+      --color-mist-gray: #ebeef7;
+      --color-slate-edge: #d5d9e8;
+      --font-sans: "IBM Plex Sans", Inter, system-ui, sans-serif;
+      --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      font-family: var(--font-sans);
+      color: var(--color-carbon);
+      background-color: var(--color-paper-white);
+      background-image:
+        linear-gradient(rgba(235, 238, 247, 0.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(235, 238, 247, 0.6) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--color-pewter);
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.021em;
+      color: var(--color-obsidian);
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .header h1 { margin: 0; }
+    button {
+      padding: 4px 12px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 56px;
+      background: var(--color-paper-white);
+      color: var(--color-obsidian);
+      font: 600 13px var(--font-sans);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    button:hover { background: var(--color-lime-spark); border-color: var(--color-lime-spark); }
+    button.primary { background: var(--color-lime-spark); border-color: var(--color-lime-spark); }
+    button.primary:hover { filter: brightness(0.95); }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    .actions { display: flex; gap: 8px; }
+    form.card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    form[hidden] { display: none; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: var(--color-obsidian); }
+    label small { font-weight: 400; color: var(--color-pewter); }
+    input {
+      padding: 6px 10px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--color-carbon);
+      font: 13px var(--font-mono);
+    }
+    input:focus { outline: 2px solid var(--color-cobalt-signal); outline-offset: -1px; }
+    .list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .card {
+      padding: 12px 16px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 14px;
+      background: var(--color-paper-white);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .branch {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--color-obsidian);
+      word-break: break-all;
+    }
+    .path {
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-graphite);
+      word-break: break-all;
+    }
+    .badge {
+      padding: 0 8px;
+      border-radius: 56px;
+      background: var(--color-mist-gray);
+      color: var(--color-graphite);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge.main { background: var(--color-lime-spark); color: var(--color-obsidian); }
+    .worktree { cursor: default; user-select: none; }
+    .worktree:hover { border-color: var(--color-midnight-ink); }
+    .worktree:focus-visible { outline: 2px solid var(--color-cobalt-signal); outline-offset: 1px; }
+    .date { margin-top: 4px; font-size: 12px; color: var(--color-pewter); }
+    .menu {
+      position: fixed;
+      z-index: 10;
+      min-width: 140px;
+      padding: 4px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(29, 33, 48, 0.12);
+    }
+    .menu[hidden] { display: none; }
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      text-align: left;
+      font-weight: 500;
+    }
+    .menu button:hover, .menu button:focus-visible { background: var(--color-lime-spark); outline: none; }
+    .message { color: var(--color-pewter); font-size: 14px; }
+    .message.error { color: #b42318; }
+    code { font-family: var(--font-mono); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <p class="eyebrow">Git worktrees</p>
+  <div class="header">
+    <h1>Worktree</h1>
+    <div class="actions">
+      <button id="refresh" type="button">Actualizar</button>
+      <button id="create" type="button" class="primary">Crear worktree</button>
+    </div>
+  </div>
+  <form id="create-form" class="card" hidden>
+    <label>Rama
+      <input name="branch" required placeholder="feature/mi-cambio" autocomplete="off">
+      <small>Si no existe, se crea desde la base.</small>
+    </label>
+    <label>Base
+      <input name="base" placeholder="main" autocomplete="off">
+      <small>Opcional. Por defecto, HEAD.</small>
+    </label>
+    <label>Ruta
+      <input name="path" placeholder="../repo-feature-mi-cambio" autocomplete="off">
+      <small>Opcional. Por defecto, una carpeta junto al repo.</small>
+    </label>
+    <p id="form-message" class="message error" hidden></p>
+    <div class="actions">
+      <button type="submit" class="primary">Crear</button>
+      <button type="button" id="cancel">Cancelar</button>
+    </div>
+  </form>
+  <p id="message" class="message">Cargando…</p>
+  <ul id="list" class="list"></ul>
+  <div id="menu" class="menu" role="menu" hidden>
+    <button id="menu-open" type="button" role="menuitem">Abrir</button>
+  </div>
+  <script>
+    const list = document.getElementById("list");
+    const message = document.getElementById("message");
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function render(worktrees) {
+      list.replaceChildren(
+        ...worktrees.map((worktree) => {
+          const item = el("li", "card worktree");
+          item.tabIndex = 0;
+          item.title = "Doble clic para abrir";
+          item.addEventListener("dblclick", () => openWorktree(worktree.path));
+          item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") openWorktree(worktree.path);
+          });
+          item.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            showMenu(event.clientX, event.clientY, worktree.path);
+          });
+          const title = el("div", "branch");
+          const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
+          title.append(el("span", "", name));
+          if (worktree.main) title.append(el("span", "badge main", "principal"));
+          if (worktree.detached) title.append(el("span", "badge", "detached"));
+          if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
+          if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
+          item.append(title, el("div", "path", worktree.path));
+          if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
+          return item;
+        }),
+      );
+    }
+
+    const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+    const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+
+    function relativeTime(seconds) {
+      const diff = seconds - Date.now() / 1000;
+      for (const [unit, size] of units) {
+        if (Math.abs(diff) >= size) return `Último commit ${rtf.format(Math.round(diff / size), unit)}`;
+      }
+      return "Último commit hace un momento";
+    }
+
+    async function openWorktree(path) {
+      try {
+        const response = await fetch("/api/worktrees/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        message.className = "message";
+        message.textContent = `Abriendo ${data.path}`;
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
+    const menu = document.getElementById("menu");
+    let menuPath;
+
+    function showMenu(x, y, path) {
+      menuPath = path;
+      menu.hidden = false;
+      const { width, height } = menu.getBoundingClientRect();
+      menu.style.left = `${Math.min(x, innerWidth - width - 4)}px`;
+      menu.style.top = `${Math.min(y, innerHeight - height - 4)}px`;
+      menu.querySelector("button").focus();
+    }
+
+    function hideMenu() {
+      menu.hidden = true;
+    }
+
+    document.getElementById("menu-open").addEventListener("click", () => {
+      hideMenu();
+      openWorktree(menuPath);
+    });
+    document.addEventListener("click", (event) => {
+      if (!menu.contains(event.target)) hideMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideMenu();
+    });
+    addEventListener("blur", hideMenu);
+    addEventListener("scroll", hideMenu, true);
+
+    async function load() {
+      message.className = "message";
+      message.textContent = "Cargando…";
+      try {
+        const response = await fetch("/api/worktrees");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        render(data.worktrees);
+        message.textContent = `${data.worktrees.length} worktree(s) en ${data.cwd}`;
+      } catch (error) {
+        list.replaceChildren();
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
+    const form = document.getElementById("create-form");
+    const formMessage = document.getElementById("form-message");
+
+    function toggleForm(open) {
+      form.hidden = !open;
+      formMessage.hidden = true;
+      if (open) form.elements.branch.focus();
+      else form.reset();
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submit = form.querySelector("button[type=submit]");
+      submit.disabled = true;
+      formMessage.hidden = true;
+      try {
+        const response = await fetch("/api/worktrees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        toggleForm(false);
+        render(data.worktrees);
+        message.className = "message";
+        message.textContent = `Worktree creado en ${data.path}`;
+      } catch (error) {
+        formMessage.textContent = error.message;
+        formMessage.hidden = false;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    document.getElementById("create").addEventListener("click", () => toggleForm(form.hidden));
+    document.getElementById("cancel").addEventListener("click", () => toggleForm(false));
+    document.getElementById("refresh").addEventListener("click", load);
+    load();
+  </script>
+</body>
+</html>
