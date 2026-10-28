@@ -21,6 +21,8 @@ export interface Worktree {
   prunable?: string;
   /** Free-text note the user attached to the worktree, see `setWorktreeDescription`. */
   description?: string;
+  /** Marked with a star by the user, see `setWorktreeStarred`. */
+  starred?: boolean;
 }
 
 /** Parses the output of `git worktree list --porcelain`. */
@@ -82,12 +84,13 @@ async function commitDates(cwd: string, heads: string[]): Promise<Map<string, nu
   return dates;
 }
 
-/** Moves the current worktree to the top, keeping the order of the rest. */
+/** Moves the current worktree to the top, then the starred ones, keeping the order of the rest. */
 function currentFirst(worktrees: Worktree[]): Worktree[] {
-  return [...worktrees.filter((w) => w.current), ...worktrees.filter((w) => !w.current)];
+  const rank = (w: Worktree) => (w.current ? 0 : w.starred ? 1 : 2);
+  return [...worktrees].sort((a, b) => rank(a) - rank(b));
 }
 
-/** Lists the worktrees, the current one first and then the most recent commit first. */
+/** Lists the worktrees: the current one first, then the starred ones, then the most recent commit first. */
 export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   const { stdout } = await execFileAsync("git", ["worktree", "list", "--porcelain"], { cwd });
   const worktrees = parseWorktreeList(stdout);
@@ -105,6 +108,10 @@ export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   for (const worktree of worktrees) {
     const description = descriptions[worktree.path];
     if (description) worktree.description = description;
+  }
+  const starred = new Set(await readStarred(cwd));
+  for (const worktree of worktrees) {
+    if (starred.has(worktree.path)) worktree.starred = true;
   }
   return currentFirst(sortByRecentCommit(worktrees));
 }
@@ -266,6 +273,37 @@ export async function setWorktreeDescription(cwd: string, path: string, value: s
   const file = await descriptionsFile(cwd);
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, `${JSON.stringify(descriptions, null, 2)}\n`);
+}
+
+/** Starred worktrees live next to the settings, as a list of absolute paths. */
+async function starredFile(cwd: string): Promise<string> {
+  return join(await gitCommonDir(cwd), "_worktree_configs", "starred.json");
+}
+
+async function readStarred(cwd: string): Promise<string[]> {
+  try {
+    const data: unknown = JSON.parse(await readFile(await starredFile(cwd), "utf8"));
+    return Array.isArray(data) ? data.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Adds or removes the star of a worktree listed by git.
+ * Like descriptions, entries of worktrees git no longer lists are dropped on each save.
+ */
+export async function setWorktreeStarred(cwd: string, path: string, starred: boolean): Promise<void> {
+  const listed = new Set((await listWorktrees(cwd)).map((w) => w.path));
+  if (!listed.has(path)) throw new Error("No existe ese worktree.");
+
+  const paths = new Set((await readStarred(cwd)).filter((entry) => listed.has(entry)));
+  if (starred) paths.add(path);
+  else paths.delete(path);
+
+  const file = await starredFile(cwd);
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify([...paths], null, 2)}\n`);
 }
 
 /** Local and remote branch names, for suggestions. */

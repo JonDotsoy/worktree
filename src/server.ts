@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreesDir } from "./worktrees";
+import { createWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -159,7 +159,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
       return;
     }
 
-    if (pathname === "/api/worktrees" || pathname === "/api/worktrees/open" || pathname === "/api/worktrees/description") {
+    if (pathname === "/api/worktrees" || pathname === "/api/worktrees/open" || pathname === "/api/worktrees/description" || pathname === "/api/worktrees/star") {
       const cwd = options.cwd();
       const sendJson = (status: number, body: unknown) => {
         res.writeHead(status, { "Content-Type": contentTypes[".json"], "Cache-Control": "no-store" });
@@ -202,6 +202,25 @@ export async function startWebServer(root: string, options: WebServerOptions): P
           }
           try {
             await setWorktreeDescription(cwd, path, description);
+          } catch (error) {
+            sendJson(400, { error: error instanceof Error ? error.message : String(error) });
+            return;
+          }
+          sendJson(200, { cwd, home: homedir(), compact: await getCompact(cwd), worktrees: await listWorktrees(cwd) });
+          return;
+        }
+        if (pathname === "/api/worktrees/star") {
+          if (req.method !== "PUT") {
+            sendJson(405, { error: "Method not allowed" });
+            return;
+          }
+          const { path, starred } = (await readJson(req)) as { path?: unknown; starred?: unknown };
+          if (typeof path !== "string" || typeof starred !== "boolean") {
+            sendJson(400, { error: "Datos no válidos." });
+            return;
+          }
+          try {
+            await setWorktreeStarred(cwd, path, starred);
           } catch (error) {
             sendJson(400, { error: error instanceof Error ? error.message : String(error) });
             return;
