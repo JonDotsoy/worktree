@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -8,6 +9,8 @@ export interface Worktree {
   path: string;
   /** The main worktree, the first one listed by git. */
   main?: boolean;
+  /** The worktree that `cwd` belongs to, the one the view is observing. */
+  current?: boolean;
   head?: string;
   /** Committer date of HEAD, in seconds since the epoch. */
   committedAt?: number;
@@ -77,32 +80,48 @@ async function commitDates(cwd: string, heads: string[]): Promise<Map<string, nu
   return dates;
 }
 
-/** Lists the worktrees, most recent commit first. */
+/** Moves the current worktree to the top, keeping the order of the rest. */
+function currentFirst(worktrees: Worktree[]): Worktree[] {
+  return [...worktrees.filter((w) => w.current), ...worktrees.filter((w) => !w.current)];
+}
+
+/** Lists the worktrees, the current one first and then the most recent commit first. */
 export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   const { stdout } = await execFileAsync("git", ["worktree", "list", "--porcelain"], { cwd });
   const worktrees = parseWorktreeList(stdout);
   if (worktrees[0]) worktrees[0].main = true;
 
+  const { stdout: toplevel } = await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd });
+  const current = worktrees.find((w) => w.path === toplevel.trim());
+  if (current) current.current = true;
+
   const dates = await commitDates(cwd, [...new Set(worktrees.flatMap((w) => (w.head ? [w.head] : [])))]);
   for (const worktree of worktrees) {
     if (worktree.head) worktree.committedAt = dates.get(worktree.head);
   }
-  return sortByRecentCommit(worktrees);
+  return currentFirst(sortByRecentCommit(worktrees));
 }
 
 export interface CreateWorktreeInput {
   /** Branch to check out; created from `base` when it does not exist yet. */
   branch: string;
-  /** Commit-ish for a new branch. Defaults to the current HEAD. */
+  /** Commit-ish for a new branch. Defaults to the configured base branch, then the current HEAD. */
   base?: string;
-  /** Target directory. Defaults to a sibling of the main worktree, see `defaultWorktreePath`. */
+  /** Target directory. Defaults to `<worktrees dir>/<branch>` under the project root, see `defaultWorktreePath`. */
   path?: string;
 }
 
-/** `/repos/app` + `feature/login` → `/repos/app-feature-login`. */
-export function defaultWorktreePath(mainWorktreePath: string, branch: string): string {
-  const slug = branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
-  return join(dirname(mainWorktreePath), `${basename(mainWorktreePath)}-${slug}`);
+/** Folder for new worktrees when none is configured, relative to the project root. */
+export const DEFAULT_WORKTREES_DIR = ".worktree";
+
+/** `feature/login` → `feature-login`; also used by the page to preview the path. */
+export function branchSlug(branch: string): string {
+  return branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/** `/repos/app` + `feature/login` → `/repos/app/.worktree/feature-login`. */
+export function defaultWorktreePath(mainWorktreePath: string, branch: string, dir = DEFAULT_WORKTREES_DIR): string {
+  return resolve(mainWorktreePath, dir, branchSlug(branch));
 }
 
 async function git(cwd: string, args: string[]): Promise<string> {
@@ -124,18 +143,100 @@ async function branchExists(cwd: string, branch: string): Promise<boolean> {
   }
 }
 
+/** The git dir shared by every worktree of the repo, i.e. the `.git` of the main worktree. */
+export async function gitCommonDir(cwd: string): Promise<string> {
+  return (await git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"])).trim();
+}
+
+/** Where the view keeps its settings: `<common git dir>/_worktree_configs/settings.json`. */
+async function settingsFile(cwd: string): Promise<string> {
+  return join(await gitCommonDir(cwd), "_worktree_configs", "settings.json");
+}
+
+interface Settings {
+  baseBranch?: string;
+  worktreesDir?: string;
+}
+
+async function readSettings(cwd: string): Promise<Settings> {
+  try {
+    return JSON.parse(await readFile(await settingsFile(cwd), "utf8")) as Settings;
+  } catch {
+    return {};
+  }
+}
+
+/** Branch new worktrees are created from; empty when unset (git then uses HEAD). */
+export async function getBaseBranch(cwd: string): Promise<string> {
+  const { baseBranch } = await readSettings(cwd);
+  return typeof baseBranch === "string" ? baseBranch : "";
+}
+
+async function writeSetting(cwd: string, key: keyof Settings, value: string): Promise<void> {
+  const file = await settingsFile(cwd);
+  const settings = await readSettings(cwd);
+  if (value) settings[key] = value;
+  else delete settings[key];
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+/** Stores the base branch in the settings file; an empty value clears it. */
+export async function setBaseBranch(cwd: string, value: string): Promise<void> {
+  const base = value.trim();
+  if (base) {
+    if (base.startsWith("-")) throw new Error("La base no es válida.");
+    await git(cwd, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).catch(() => {
+      throw new Error(`La rama "${base}" no existe.`);
+    });
+  }
+  await writeSetting(cwd, "baseBranch", base);
+}
+
+/** Folder new worktrees go in, relative to the project root unless absolute. */
+export async function getWorktreesDir(cwd: string): Promise<string> {
+  const { worktreesDir } = await readSettings(cwd);
+  return typeof worktreesDir === "string" && worktreesDir ? worktreesDir : DEFAULT_WORKTREES_DIR;
+}
+
+/** Stores the worktrees folder; an empty value goes back to the default. */
+export async function setWorktreesDir(cwd: string, value: string): Promise<void> {
+  const dir = value.trim();
+  if (dir === DEFAULT_WORKTREES_DIR || dir === `${DEFAULT_WORKTREES_DIR}/`) return writeSetting(cwd, "worktreesDir", "");
+  await writeSetting(cwd, "worktreesDir", dir);
+}
+
+/** Local and remote branch names, for suggestions. */
+export async function listBranches(cwd: string): Promise<string[]> {
+  const out = await git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"]);
+  return out.split("\n").filter((name) => name && !name.endsWith("/HEAD"));
+}
+
+/** Creates the default worktrees folder with a `.gitignore` of `*`, so git never lists its contents. */
+async function ensureIgnoredDir(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, ".gitignore"), "*\n", { flag: "wx" }).catch((error) => {
+    if (error?.code !== "EEXIST") throw error;
+  });
+}
+
 /** Runs `git worktree add` and returns the path of the new worktree. */
 export async function createWorktree(cwd: string, input: CreateWorktreeInput): Promise<string> {
   const branch = input.branch.trim();
-  const base = input.base?.trim();
+  const base = input.base?.trim() || (await getBaseBranch(cwd));
   if (!branch || branch.startsWith("-")) throw new Error("El nombre de la rama no es válido.");
   if (base?.startsWith("-")) throw new Error("La base no es válida.");
   await git(cwd, ["check-ref-format", "--branch", branch]);
 
   const main = (await listWorktrees(cwd)).find((w) => w.main);
-  const path = input.path?.trim()
-    ? resolve(cwd, input.path.trim())
-    : defaultWorktreePath(main?.path ?? cwd, branch);
+  let path: string;
+  if (input.path?.trim()) {
+    path = resolve(cwd, input.path.trim());
+  } else {
+    const dir = await getWorktreesDir(cwd);
+    path = defaultWorktreePath(main?.path ?? cwd, branch, dir);
+    if (dir === DEFAULT_WORKTREES_DIR) await ensureIgnoredDir(resolve(main?.path ?? cwd, dir));
+  }
 
   const args = (await branchExists(cwd, branch))
     ? ["worktree", "add", "--", path, branch]

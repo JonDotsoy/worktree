@@ -78,9 +78,11 @@
     button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
     button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     button:disabled { opacity: 0.6; cursor: progress; }
+    button.icon { padding: 4px 8px; }
     .actions { display: flex; gap: 8px; }
     form.card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-    form[hidden] { display: none; }
+    form[hidden], #main-view[hidden] { display: none; }
+    form h2 { margin: 0; font-size: 16px; color: var(--fg-strong); }
     label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: var(--fg-strong); }
     label small { font-weight: 400; color: var(--fg-muted); }
     input {
@@ -91,7 +93,15 @@
       color: var(--vscode-input-foreground, var(--fg));
       font: 13px var(--font-mono);
     }
-    input:focus { outline: 1px solid var(--focus); outline-offset: -1px; }
+    select {
+      padding: 6px 10px;
+      border: 1px solid var(--vscode-input-border, var(--border));
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--vscode-input-foreground, var(--fg));
+      font: 13px var(--font-mono);
+    }
+    input:focus, select:focus { outline: 1px solid var(--focus); outline-offset: -1px; }
     .list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .card {
       padding: 12px 16px;
@@ -117,6 +127,24 @@
       color: var(--fg-muted);
       word-break: break-all;
     }
+    .path-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .copy {
+      flex: none;
+      margin-top: 4px;
+      padding: 0 4px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      font-size: 12px;
+      line-height: 1.4;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    .copy:hover, .copy:focus-visible { opacity: 1; }
     .badge {
       padding: 0 8px;
       border-radius: 56px;
@@ -125,6 +153,8 @@
       font-size: 12px;
       font-weight: 500;
     }
+    .badge.current { background: var(--fg-strong); color: var(--bg, #fff); }
+    .worktree.is-current { border-color: var(--focus); }
     .badge.main { background: var(--accent); color: var(--accent-fg); }
     .worktree { cursor: default; user-select: none; }
     .worktree:hover { background: var(--hover-bg); }
@@ -164,10 +194,26 @@
   <div class="header">
     <h1>Worktree</h1>
     <div class="actions">
-      <button id="refresh" type="button">Actualizar</button>
+      <button id="settings-toggle" type="button" class="icon" title="Configuración" aria-label="Configuración">⚙️</button>
       <button id="create" type="button" class="primary">Crear worktree</button>
     </div>
   </div>
+  <form id="settings" class="card" hidden>
+    <h2>Configuración</h2>
+    <label>Rama base para worktrees nuevos
+      <select name="baseBranch"></select>
+      <small>Opcional. Se usa al crear una rama nueva si no indicas otra base. Se guarda en <code>.git/_worktree_configs</code>.</small>
+    </label>
+    <label>Carpeta base de worktrees
+      <input name="worktreesDir" placeholder=".worktree" autocomplete="off">
+      <small>Relativa a la raíz del proyecto. Un worktree "foo" queda en <code>&lt;carpeta&gt;/foo</code>. Por defecto, <code>.worktree</code>.</small>
+    </label>
+    <p id="settings-message" class="message" hidden></p>
+    <div class="actions">
+      <button type="button" id="settings-close">Volver</button>
+    </div>
+  </form>
+  <div id="main-view">
   <form id="create-form" class="card" hidden>
     <label>Rama
       <input name="branch" required placeholder="feature/mi-cambio" autocomplete="off">
@@ -175,11 +221,11 @@
     </label>
     <label>Base
       <input name="base" placeholder="main" autocomplete="off">
-      <small>Opcional. Por defecto, HEAD.</small>
+      <small>Opcional. Por defecto, <code id="base-default">HEAD</code>.</small>
     </label>
     <label>Ruta
-      <input name="path" placeholder="../repo-feature-mi-cambio" autocomplete="off">
-      <small>Opcional. Por defecto, una carpeta junto al repo.</small>
+      <input name="path" placeholder=".worktree/feature-mi-cambio" autocomplete="off">
+      <small>Opcional. Por defecto, <code id="path-default">.worktree/&lt;nombre&gt;</code>.</small>
     </label>
     <p id="form-message" class="message error" hidden></p>
     <div class="actions">
@@ -189,6 +235,7 @@
   </form>
   <p id="message" class="message">Cargando…</p>
   <ul id="list" class="list"></ul>
+  </div>
   <div id="menu" class="menu" role="menu" hidden>
     <button id="menu-open" type="button" role="menuitem">Abrir</button>
   </div>
@@ -219,6 +266,7 @@
         ...worktrees.map((worktree) => {
           const item = el("li", "card worktree");
           item.tabIndex = 0;
+          item.classList.toggle("is-current", Boolean(worktree.current));
           item.title = "Doble clic para abrir";
           item.addEventListener("dblclick", () => openWorktree(worktree.path));
           item.addEventListener("keydown", (event) => {
@@ -231,12 +279,19 @@
           const title = el("div", "branch");
           const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
           title.append(el("span", "", name));
+          if (worktree.current) title.append(el("span", "badge current", "current"));
           if (worktree.main) title.append(el("span", "badge main", "principal"));
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
-          item.append(title, el("div", "path", worktree.path));
-          if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
+          const row = el("div", "path-row");
+          row.append(el("div", "path", tildify(worktree.path)), copyButton(worktree.path));
+          item.append(title, row);
+          if (worktree.committedAt) {
+            const date = el("div", "date", relativeTime(worktree.committedAt));
+            date.title = fullDate(worktree.committedAt);
+            item.append(date);
+          }
           return item;
         }),
       );
@@ -245,12 +300,59 @@
     const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
     const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
 
+    /** Full local date and time with the time zone, shown as a tooltip. */
+    function fullDate(seconds) {
+      return new Date(seconds * 1000).toLocaleString("es", { dateStyle: "full", timeStyle: "long" });
+    }
+
     function relativeTime(seconds) {
       const diff = seconds - Date.now() / 1000;
       for (const [unit, size] of units) {
         if (Math.abs(diff) >= size) return `Último commit ${rtf.format(Math.round(diff / size), unit)}`;
       }
       return "Último commit hace un momento";
+    }
+
+    /** Copies the real (absolute) path; the button shows ✅ briefly on success. */
+    function copyButton(path) {
+      const button = el("button", "copy", "📋");
+      button.type = "button";
+      button.title = "Copiar ruta";
+      button.setAttribute("aria-label", "Copiar ruta");
+      for (const type of ["dblclick", "keydown"]) button.addEventListener(type, (event) => event.stopPropagation());
+      button.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!(await copyText(path))) return;
+        button.textContent = "✅";
+        setTimeout(() => (button.textContent = "📋"), 1200);
+      });
+      return button;
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.append(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        area.remove();
+        return ok;
+      }
+    }
+
+    let home = "";
+
+    /** Display-only: shows `$HOME/` as `~/`; actions keep using the real path. */
+    function tildify(path) {
+      if (home && path === home) return "~";
+      if (home && path.startsWith(home + "/")) return "~" + path.slice(home.length);
+      return path;
     }
 
     async function openWorktree(path) {
@@ -263,7 +365,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         message.className = "message";
-        message.textContent = `Abriendo ${data.path}`;
+        message.textContent = `Abriendo ${tildify(data.path)}`;
       } catch (error) {
         message.className = "message error";
         message.textContent = error.message;
@@ -299,20 +401,24 @@
     addEventListener("blur", hideMenu);
     addEventListener("scroll", hideMenu, true);
 
-    async function load() {
-      message.className = "message";
-      message.textContent = "Cargando…";
-      try {
-        const response = await fetch("/api/worktrees");
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
+    /** Live list: the server pushes a new snapshot whenever the worktrees change. */
+    function listen() {
+      const source = new EventSource("/api/worktrees/events");
+      source.addEventListener("worktrees", (event) => {
+        const data = JSON.parse(event.data);
+        home = data.home ?? home;
         render(data.worktrees);
-        message.textContent = `${data.worktrees.length} worktree(s) en ${data.cwd}`;
-      } catch (error) {
+        message.className = "message";
+        message.textContent = `${data.worktrees.length} worktree(s) en ${tildify(data.cwd)}`;
+      });
+      source.addEventListener("failure", (event) => {
         list.replaceChildren();
         message.className = "message error";
-        message.textContent = error.message;
-      }
+        message.textContent = JSON.parse(event.data).error;
+      });
+      source.addEventListener("error", () => {
+        if (source.readyState === EventSource.CONNECTING) message.textContent = "Reconectando…";
+      });
     }
 
     const form = document.getElementById("create-form");
@@ -339,9 +445,10 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         toggleForm(false);
+        home = data.home ?? home;
         render(data.worktrees);
         message.className = "message";
-        message.textContent = `Worktree creado en ${data.path}`;
+        message.textContent = `Worktree creado en ${tildify(data.path)}`;
       } catch (error) {
         formMessage.textContent = error.message;
         formMessage.hidden = false;
@@ -352,8 +459,92 @@
 
     document.getElementById("create").addEventListener("click", () => toggleForm(form.hidden));
     document.getElementById("cancel").addEventListener("click", () => toggleForm(false));
-    document.getElementById("refresh").addEventListener("click", load);
-    load();
+
+    const settings = document.getElementById("settings");
+    const settingsMessage = document.getElementById("settings-message");
+    const mainView = document.getElementById("main-view");
+
+    const settingsState = { baseBranch: "", worktreesDir: ".worktree" };
+
+    /** Same slug rule as the backend (`branchSlug`), so the placeholder matches the real path. */
+    function slug(branch) {
+      return branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    /** Shows the configured defaults as placeholders and in the hints of the create form. */
+    function updateFormDefaults() {
+      const dir = settingsState.worktreesDir.replace(/\/+$/, "");
+      const name = slug(form.elements.branch.value.trim()) || "feature-mi-cambio";
+      form.elements.base.placeholder = settingsState.baseBranch || "HEAD";
+      form.elements.path.placeholder = `${dir}/${name}`;
+      document.getElementById("base-default").textContent = settingsState.baseBranch || "HEAD";
+      document.getElementById("path-default").textContent = `${dir}/<nombre>`;
+    }
+
+    form.elements.branch.addEventListener("input", updateFormDefaults);
+
+    function applySettings(data) {
+      const names = data.branches.includes(data.baseBranch) || !data.baseBranch ? data.branches : [data.baseBranch, ...data.branches];
+      const option = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
+      settings.elements.baseBranch.replaceChildren(option("", "HEAD (por defecto)"), ...names.map((name) => option(name, name)));
+      settings.elements.baseBranch.value = data.baseBranch;
+      settings.elements.worktreesDir.value = data.worktreesDir;
+      settingsState.baseBranch = data.baseBranch;
+      settingsState.worktreesDir = data.worktreesDir;
+      updateFormDefaults();
+    }
+
+    function showSettingsMessage(text, error) {
+      settingsMessage.textContent = text;
+      settingsMessage.className = error ? "message error" : "message";
+      settingsMessage.hidden = !text;
+    }
+
+    async function toggleSettings(open) {
+      settings.hidden = !open;
+      mainView.hidden = open;
+      showSettingsMessage("", false);
+      if (!open) return;
+      try {
+        const response = await fetch("/api/settings");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        applySettings(data);
+        settings.elements.baseBranch.focus();
+      } catch (error) {
+        showSettingsMessage(error.message, true);
+      }
+    }
+
+    // Saves as soon as the selection changes; there is no save button.
+    settings.addEventListener("submit", (event) => event.preventDefault());
+    async function saveSettings(field) {
+      field.disabled = true;
+      try {
+        const response = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field.name]: field.value }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        applySettings(data);
+        showSettingsMessage("Guardado automáticamente.", false);
+      } catch (error) {
+        showSettingsMessage(error.message, true);
+      } finally {
+        field.disabled = false;
+      }
+    }
+
+    for (const name of ["baseBranch", "worktreesDir"]) {
+      settings.elements[name].addEventListener("change", (event) => saveSettings(event.target));
+    }
+
+    document.getElementById("settings-toggle").addEventListener("click", () => toggleSettings(settings.hidden));
+    document.getElementById("settings-close").addEventListener("click", () => toggleSettings(false));
+    fetch("/api/settings").then((r) => (r.ok ? r.json() : undefined)).then((data) => data && applySettings(data), () => {});
+    listen();
   </script>
 </body>
 </html>

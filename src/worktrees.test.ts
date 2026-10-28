@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, readFileSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, getWorktreesDir, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -48,9 +48,10 @@ describe("parseWorktreeList", () => {
 });
 
 describe("defaultWorktreePath", () => {
-  test("creates a sibling directory named after the branch", () => {
-    expect(defaultWorktreePath("/repos/app", "feature/login")).toBe("/repos/app-feature-login");
-    expect(defaultWorktreePath("/repos/app", "fix it!")).toBe("/repos/app-fix-it");
+  test("creates a directory named after the branch inside the worktrees folder", () => {
+    expect(defaultWorktreePath("/repos/app", "feature/login")).toBe("/repos/app/.worktree/feature-login");
+    expect(defaultWorktreePath("/repos/app", "fix it!")).toBe("/repos/app/.worktree/fix-it");
+    expect(defaultWorktreePath("/repos/app", "foo", "../trees")).toBe("/repos/trees/foo");
   });
 });
 
@@ -67,7 +68,9 @@ describe("createWorktree", () => {
   test("creates a new branch in the default path", async () => {
     const repo = initRepo();
     const path = await createWorktree(repo, { branch: "feature/login" });
-    expect(path).toBe(`${repo}-feature-login`);
+    expect(path).toBe(join(repo, ".worktree", "feature-login"));
+    expect(readFileSync(join(repo, ".worktree", ".gitignore"), "utf8")).toBe("*\n");
+    expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo }).toString()).toBe("");
     const worktrees = await listWorktrees(repo);
     expect(worktrees.map((w) => [w.path, w.branch])).toEqual([
       [repo, "main"],
@@ -118,12 +121,57 @@ describe("listWorktrees", () => {
     commit(join(root, "new"), "2024-03-01T00:00:00Z");
     commit(repo, "2024-02-01T00:00:00Z");
 
-    const worktrees = await listWorktrees(repo);
+    const worktrees = await listWorktrees(join(root, "new"));
     expect(worktrees.map((w) => [w.branch, w.main ?? false])).toEqual([
       ["new", false],
       ["main", true],
       ["old", false],
     ]);
     expect(worktrees[0]?.committedAt).toBe(Date.parse("2024-03-01T00:00:00Z") / 1000);
+
+    // The worktree being observed goes first, even from a subfolder and when it is the oldest.
+    mkdirSync(join(root, "old", "sub"));
+    const fromOld = await listWorktrees(join(root, "old", "sub"));
+    expect(fromOld.map((w) => [w.branch, w.current ?? false])).toEqual([
+      ["old", true],
+      ["new", false],
+      ["main", false],
+    ]);
+  });
+});
+
+describe("base branch setting", () => {
+  test("is stored under .git/_worktree_configs, validated, and used by createWorktree", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo }).toString().trim();
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    git("commit", "-q", "--allow-empty", "-m", "one");
+    git("branch", "develop");
+    git("commit", "-q", "--allow-empty", "-m", "two");
+
+    expect(await getBaseBranch(repo)).toBe("");
+    expect(await listBranches(repo)).toEqual(["develop", "main"]);
+    await expect(setBaseBranch(repo, "nope")).rejects.toThrow();
+
+    await setBaseBranch(repo, "develop");
+    expect(await getBaseBranch(repo)).toBe("develop");
+    await createWorktree(repo, { branch: "feature" });
+    expect(git("rev-parse", "feature")).toBe(git("rev-parse", "develop"));
+
+    expect(JSON.parse(readFileSync(join(repo, ".git", "_worktree_configs", "settings.json"), "utf8"))).toEqual({
+      baseBranch: "develop",
+    });
+
+    await setBaseBranch(repo, "");
+    expect(await getBaseBranch(repo)).toBe("");
+
+    expect(await getWorktreesDir(repo)).toBe(".worktree");
+    await setWorktreesDir(repo, "../trees");
+    expect(await getWorktreesDir(repo)).toBe("../trees");
+    expect(await createWorktree(repo, { branch: "other" })).toBe(join(root, "trees", "other"));
+    await setWorktreesDir(repo, "");
+    expect(await getWorktreesDir(repo)).toBe(".worktree");
   });
 });
