@@ -19,7 +19,7 @@ los worktrees del repositorio abierto:
 - **Copiar ruta:** copia la ruta del worktree al portapapeles. Las rutas dentro de tu home se
   muestran abreviadas con `~`.
 - **Descripción:** cada tarjeta permite agregar o editar una nota de texto libre (hasta 500
-  caracteres). Se guarda sola al salir del campo y la comparten todas las ventanas del repositorio.
+  caracteres). Para editarla, usa el botón de editar o haz doble clic sobre el texto (sin abrir el worktree). Se guarda sola al salir del campo (o con <kbd>Alt</kbd>+<kbd>Enter</kbd>, <kbd>⌘</kbd>+<kbd>Enter</kbd> en Mac) y la comparten todas las ventanas del repositorio.
 - **Crear worktree:** formulario con rama, base y ruta opcionales.
 - **Actualización en vivo:** la lista se mantiene al día mediante SSE (Server-Sent Events);
   cuando cambian los datos de git la vista se refresca sola.
