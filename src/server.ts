@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setWorktreesDir } from "./worktrees";
+import { createWorktree, getBaseBranch, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setWorktreeDescription, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -157,7 +157,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
       return;
     }
 
-    if (pathname === "/api/worktrees" || pathname === "/api/worktrees/open") {
+    if (pathname === "/api/worktrees" || pathname === "/api/worktrees/open" || pathname === "/api/worktrees/description") {
       const cwd = options.cwd();
       const sendJson = (status: number, body: unknown) => {
         res.writeHead(status, { "Content-Type": contentTypes[".json"], "Cache-Control": "no-store" });
@@ -168,7 +168,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
         return;
       }
       try {
-        if (req.method === "POST" && !isSameOriginJson(req)) {
+        if ((req.method === "POST" || req.method === "PUT") && !isSameOriginJson(req)) {
           sendJson(403, { error: "Forbidden" });
           return;
         }
@@ -186,6 +186,25 @@ export async function startWebServer(root: string, options: WebServerOptions): P
           }
           await options.open(worktree.path);
           sendJson(200, { path: worktree.path });
+          return;
+        }
+        if (pathname === "/api/worktrees/description") {
+          if (req.method !== "PUT") {
+            sendJson(405, { error: "Method not allowed" });
+            return;
+          }
+          const { path, description } = (await readJson(req)) as { path?: unknown; description?: unknown };
+          if (typeof path !== "string" || typeof description !== "string") {
+            sendJson(400, { error: "Datos no válidos." });
+            return;
+          }
+          try {
+            await setWorktreeDescription(cwd, path, description);
+          } catch (error) {
+            sendJson(400, { error: error instanceof Error ? error.message : String(error) });
+            return;
+          }
+          sendJson(200, { cwd, home: homedir(), worktrees: await listWorktrees(cwd) });
           return;
         }
         if (req.method === "POST") {

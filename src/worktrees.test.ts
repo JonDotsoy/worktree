@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, readFileSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, getBaseBranch, getWorktreesDir, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, setWorktreesDir, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setWorktreeDescription, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -173,5 +173,59 @@ describe("base branch setting", () => {
     expect(await createWorktree(repo, { branch: "other" })).toBe(join(root, "trees", "other"));
     await setWorktreesDir(repo, "");
     expect(await getWorktreesDir(repo)).toBe(".worktree");
+  });
+});
+
+describe("worktree descriptions", () => {
+  function setup() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: repo });
+    return { root, repo };
+  }
+  const file = (repo: string) => join(repo, ".git", "_worktree_configs", "descriptions.json");
+
+  test("are stored in the common git dir, shared by every worktree, and cleared when empty", async () => {
+    const { repo } = setup();
+    const other = await createWorktree(repo, { branch: "feature" });
+    await setWorktreeDescription(other, other, "  Trabajo de login\nsegunda línea  ");
+    expect(JSON.parse(readFileSync(file(repo), "utf8"))).toEqual({ [other]: "Trabajo de login\nsegunda línea" });
+
+    const fromMain = await listWorktrees(repo);
+    expect(fromMain.find((w) => w.path === other)?.description).toBe("Trabajo de login\nsegunda línea");
+    expect(fromMain.find((w) => w.main)?.description).toBeUndefined();
+
+    await setWorktreeDescription(repo, other, "  ");
+    expect(JSON.parse(readFileSync(file(repo), "utf8"))).toEqual({});
+    expect((await listWorktrees(repo)).every((w) => w.description === undefined)).toBe(true);
+  });
+
+  test("rejects unknown worktrees and texts over the limit", async () => {
+    const { repo, root } = setup();
+    await expect(setWorktreeDescription(repo, join(root, "nope"), "x")).rejects.toThrow("No existe");
+    await expect(setWorktreeDescription(repo, repo, "x".repeat(MAX_DESCRIPTION_LENGTH + 1))).rejects.toThrow("500");
+    await setWorktreeDescription(repo, repo, "x".repeat(MAX_DESCRIPTION_LENGTH));
+    expect((await listWorktrees(repo))[0]?.description).toHaveLength(MAX_DESCRIPTION_LENGTH);
+  });
+
+  test("drops entries of worktrees git no longer lists, keeping the rest", async () => {
+    const { repo } = setup();
+    const a = await createWorktree(repo, { branch: "a" });
+    const b = await createWorktree(repo, { branch: "b" });
+    await setWorktreeDescription(repo, a, "nota a");
+    await setWorktreeDescription(repo, b, "nota b");
+    execFileSync("git", ["worktree", "remove", "--force", a], { cwd: repo });
+    await setWorktreeDescription(repo, repo, "principal");
+    expect(JSON.parse(readFileSync(file(repo), "utf8"))).toEqual({ [b]: "nota b", [repo]: "principal" });
+  });
+
+  test("a missing or corrupt file is treated as empty", async () => {
+    const { repo } = setup();
+    mkdirSync(join(repo, ".git", "_worktree_configs"), { recursive: true });
+    writeFileSync(file(repo), "{not json");
+    expect((await listWorktrees(repo))[0]?.description).toBeUndefined();
+    await setWorktreeDescription(repo, repo, "ok");
+    expect((await listWorktrees(repo))[0]?.description).toBe("ok");
   });
 });

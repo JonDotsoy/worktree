@@ -11,13 +11,15 @@ Worktree agrega un icono a la barra de actividades de VS Code con una vista que 
 los worktrees del repositorio abierto:
 
 - **Ordenados por actividad:** del commit más reciente al más antiguo, con la rama (o el
-  commit si está *detached*), la ruta y la fecha del último commit.
+  commit si está *detached*), la ruta y la fecha del último commit. Al pasar el cursor sobre la fecha relativa se muestra la fecha y hora completas.
 - **Worktree actual destacado:** el worktree de la ventana en la que estás se marca con la
   etiqueta `current`; el principal lleva la etiqueta `principal`.
 - **Abrir:** doble clic sobre un worktree, o clic secundario → **Abrir**, lo abre en una
   ventana nueva de VS Code.
 - **Copiar ruta:** copia la ruta del worktree al portapapeles. Las rutas dentro de tu home se
   muestran abreviadas con `~`.
+- **Descripción:** cada tarjeta permite agregar o editar una nota de texto libre (hasta 500
+  caracteres). Se guarda sola al salir del campo y la comparten todas las ventanas del repositorio.
 - **Crear worktree:** formulario con rama, base y ruta opcionales.
 - **Actualización en vivo:** la lista se mantiene al día mediante SSE (Server-Sent Events);
   cuando cambian los datos de git la vista se refresca sola.
@@ -36,12 +38,13 @@ los worktrees del repositorio abierto:
   <tr>
     <td align="center" valign="top"><img src="docs/screenshots/copiar-ruta.png" alt="Copiar ruta" width="100%"><br><sub>Copiar ruta</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/estados.png" alt="Estados" width="100%"><br><sub>Estados y rutas con ~</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/descripcion.png" alt="Descripción" width="100%"><br><sub>Descripción por worktree</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-formulario.png" alt="Crear worktree" width="100%"><br><sub>Crear worktree</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-resultado.png" alt="Worktree creado" width="100%"><br><sub>Worktree creado</sub></td>
   </tr>
 </table>
 
-La configuración se guarda automáticamente en `.git/_worktree_configs`.
+La configuración y las descripciones se guardan automáticamente en `.git/_worktree_configs`.
 
 ## Instalación
 
