@@ -55,6 +55,10 @@ La configuración se guarda automáticamente en `.git/_worktree_configs`.
 
 3. Abre un repositorio git y pulsa el icono de **Worktree** en la barra de actividades.
 
+## Seguridad
+
+Qué archivos crea, qué comandos ejecuta y cómo reportar una vulnerabilidad: [SECURITY.md](SECURITY.md).
+
 ## Desarrollo
 
 Requisitos: [Bun](https://bun.sh) y el comando `code` disponible en el `PATH`
