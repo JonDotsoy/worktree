@@ -174,6 +174,50 @@
     .worktree:hover { background: var(--hover-bg); }
     .worktree:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
     .date { margin-top: 4px; font-size: 12px; color: var(--fg-muted); }
+    .description { margin-top: 6px; }
+    .description-text {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .description-text p {
+      flex: 1;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+    .description .add {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border: 0;
+      border-radius: 4px;
+      color: var(--fg-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .description .add .ico { width: 14px; height: 14px; }
+    .description .edit { margin-top: 0; }
+    .description .add:hover, .description .add:focus-visible { background: var(--hover-bg); color: var(--fg-strong); }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 56px;
+      padding: 6px 10px;
+      border: 1px solid var(--vscode-input-border, var(--border));
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--vscode-input-foreground, var(--fg));
+      font: 13px var(--font-sans);
+      resize: vertical;
+      user-select: text;
+    }
+    textarea:focus { outline: 1px solid var(--focus); outline-offset: -1px; }
+    .description small { display: block; margin-top: 2px; color: var(--fg-muted); font-size: 11px; }
     .menu {
       position: fixed;
       z-index: 10;
@@ -300,7 +344,7 @@
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
           const row = el("div", "path-row");
           row.append(el("div", "path", tildify(worktree.path)), copyButton(worktree.path));
-          item.append(title, row);
+          item.append(title, row, descriptionBlock(worktree));
           if (worktree.committedAt) {
             const date = el("div", "date", relativeTime(worktree.committedAt));
             date.title = fullDate(worktree.committedAt);
@@ -309,6 +353,112 @@
           return item;
         }),
       );
+    }
+
+    const DESCRIPTION_MAX = 500;
+    /** Latest snapshot received while a description was being edited; rendered afterwards. */
+    let pendingRender;
+    let editing = false;
+
+    function showSnapshot(data) {
+      if (editing) {
+        pendingRender = data;
+        return;
+      }
+      home = data.home ?? home;
+      render(data.worktrees);
+    }
+
+    /** Description of a worktree: text with an edit icon, or an "add" button when empty. */
+    function descriptionBlock(worktree) {
+      const block = el("div", "description");
+      for (const type of ["dblclick", "keydown", "contextmenu"]) block.addEventListener(type, (event) => event.stopPropagation());
+      const show = () => {
+        editing = false;
+        if (pendingRender) {
+          const data = pendingRender;
+          pendingRender = undefined;
+          showSnapshot(data);
+          return;
+        }
+        block.replaceChildren(...view().children);
+      };
+      const edit = () => {
+        editing = true;
+        const area = el("textarea");
+        area.value = worktree.description ?? "";
+        area.maxLength = DESCRIPTION_MAX;
+        area.placeholder = "Describe para qué sirve este worktree";
+        area.setAttribute("aria-label", "Descripción del worktree");
+        const hint = el("small", "", "Se guarda al salir del campo. Esc cancela.");
+        let cancelled = false;
+        area.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            cancelled = true;
+            area.blur();
+          }
+        });
+        area.addEventListener("blur", async () => {
+          const value = area.value.trim();
+          if (cancelled || value === (worktree.description ?? "")) return show();
+          try {
+            const response = await fetch("/api/worktrees/description", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: worktree.path, description: value }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+            pendingRender = undefined;
+            editing = false;
+            showSnapshot(data);
+            message.className = "message";
+            message.textContent = "Descripción guardada.";
+          } catch (error) {
+            message.className = "message error";
+            message.textContent = error.message;
+            show();
+          }
+        });
+        block.replaceChildren(area, hint);
+        area.focus();
+      };
+      const view = () => {
+        const wrap = el("div");
+        if (worktree.description) {
+          const text = el("div", "description-text");
+          const edit_ = iconButton("edit", "Editar descripción", edit);
+          edit_.classList.add("edit");
+          text.append(el("p", "", worktree.description), edit_);
+          wrap.append(text);
+        } else {
+          const add = el("button", "add");
+          add.type = "button";
+          add.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS.edit}</svg>`;
+          add.append("Agregar descripción");
+          add.addEventListener("click", (event) => {
+            event.stopPropagation();
+            edit();
+          });
+          wrap.append(add);
+        }
+        return wrap;
+      };
+      block.append(...view().children);
+      return block;
+    }
+
+    function iconButton(icon, label, onClick) {
+      const button = el("button", "copy");
+      setIcon(button, icon);
+      button.type = "button";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onClick();
+      });
+      return button;
     }
 
     const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
@@ -329,6 +479,7 @@
 
     const ICONS = {
       copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+      edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
       check: '<polyline points="20 6 9 17 4 12"/>',
     };
 
@@ -436,7 +587,7 @@
       source.addEventListener("worktrees", (event) => {
         const data = JSON.parse(event.data);
         home = data.home ?? home;
-        render(data.worktrees);
+        showSnapshot(data);
         message.className = "message";
         message.textContent = `${data.worktrees.length} worktree(s) en ${tildify(data.cwd)}`;
       });

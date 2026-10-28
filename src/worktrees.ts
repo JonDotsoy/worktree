@@ -19,6 +19,8 @@ export interface Worktree {
   detached: boolean;
   locked?: string;
   prunable?: string;
+  /** Free-text note the user attached to the worktree, see `setWorktreeDescription`. */
+  description?: string;
 }
 
 /** Parses the output of `git worktree list --porcelain`. */
@@ -98,6 +100,11 @@ export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   const dates = await commitDates(cwd, [...new Set(worktrees.flatMap((w) => (w.head ? [w.head] : [])))]);
   for (const worktree of worktrees) {
     if (worktree.head) worktree.committedAt = dates.get(worktree.head);
+  }
+  const descriptions = await readDescriptions(cwd);
+  for (const worktree of worktrees) {
+    const description = descriptions[worktree.path];
+    if (description) worktree.description = description;
   }
   return currentFirst(sortByRecentCommit(worktrees));
 }
@@ -204,6 +211,49 @@ export async function setWorktreesDir(cwd: string, value: string): Promise<void>
   const dir = value.trim();
   if (dir === DEFAULT_WORKTREES_DIR || dir === `${DEFAULT_WORKTREES_DIR}/`) return writeSetting(cwd, "worktreesDir", "");
   await writeSetting(cwd, "worktreesDir", dir);
+}
+
+/** Longest description accepted, in characters. */
+export const MAX_DESCRIPTION_LENGTH = 500;
+
+/** Descriptions live next to the settings, keyed by the absolute path of each worktree. */
+async function descriptionsFile(cwd: string): Promise<string> {
+  return join(await gitCommonDir(cwd), "_worktree_configs", "descriptions.json");
+}
+
+async function readDescriptions(cwd: string): Promise<Record<string, string>> {
+  try {
+    const data: unknown = JSON.parse(await readFile(await descriptionsFile(cwd), "utf8"));
+    if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+    return Object.fromEntries(Object.entries(data).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Stores the description of a worktree listed by git; an empty value clears it.
+ * Entries of worktrees git no longer lists are dropped on each save, so the file does
+ * not grow; the cleanup only runs after git listed the worktrees successfully.
+ */
+export async function setWorktreeDescription(cwd: string, path: string, value: string): Promise<void> {
+  const description = value.trim();
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    throw new Error(`La descripción no puede superar ${MAX_DESCRIPTION_LENGTH} caracteres.`);
+  }
+  const listed = new Set((await listWorktrees(cwd)).map((w) => w.path));
+  if (!listed.has(path)) throw new Error("No existe ese worktree.");
+
+  const descriptions = await readDescriptions(cwd);
+  for (const key of Object.keys(descriptions)) {
+    if (!listed.has(key)) delete descriptions[key];
+  }
+  if (description) descriptions[path] = description;
+  else delete descriptions[path];
+
+  const file = await descriptionsFile(cwd);
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(descriptions, null, 2)}\n`);
 }
 
 /** Local and remote branch names, for suggestions. */

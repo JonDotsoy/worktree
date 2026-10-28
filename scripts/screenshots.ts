@@ -28,7 +28,7 @@ if (!process.env.SHOTS_HOME) {
 }
 const home = process.env.SHOTS_HOME;
 const { startWebServer } = await import("../src/server");
-const { setBaseBranch } = await import("../src/worktrees");
+const { setBaseBranch, setWorktreeDescription } = await import("../src/worktrees");
 
 const root = resolve(import.meta.dir, "..");
 const outDir = join(root, "docs", "screenshots");
@@ -62,6 +62,8 @@ commit(join(projects, "app-fix"), "fix: handle empty list", 6 * 60);
 git(app, "worktree", "add", "-q", "--detach", join(projects, "app-hotfix"), "main");
 git(app, "worktree", "lock", join(projects, "app-hotfix"));
 await setBaseBranch(app, "main");
+await setWorktreeDescription(app, join(projects, "app-login"), "Formulario de inicio de sesión con OAuth. Pendiente: pruebas e2e.");
+await setWorktreeDescription(app, join(projects, "app-fix"), "Corrige el error al listar sin elementos.");
 // The folder where the extension creates new worktrees is `.worktree/` by default.
 writeFileSync(join(app, ".gitignore"), ".worktree/\n");
 
@@ -89,8 +91,19 @@ try {
   await shot(page, "menu-abrir");
   await page.close();
 
+  // Editing a description inline: it saves when the field loses focus.
   page = await open();
-  await page.locator("#list li", { hasText: "feat/login" }).locator(".copy").click();
+  await page.locator("#list li", { hasText: "main" }).first().getByRole("button", { name: "Agregar descripción" }).click();
+  await page.locator("#list textarea").fill("Rama estable; de aquí salen las demás.");
+  await shot(page, "descripcion-editar");
+  await page.locator("h1").click();
+  await page.locator("#list li", { hasText: "Rama estable" }).waitFor();
+  await shot(page, "descripcion");
+  await setWorktreeDescription(app, app, "");
+  await page.close();
+
+  page = await open();
+  await page.locator("#list li", { hasText: "feat/login" }).getByRole("button", { name: "Copiar ruta" }).click();
   await page.locator("#list li .copy.copied").waitFor();
   await shot(page, "copiar-ruta");
   await page.close();
@@ -169,7 +182,7 @@ try {
     await page.waitForTimeout(300);
     await shot(page, theme.file);
     // Copy feedback: the clipboard icon turns into a check.
-    await frame.locator("#list li", { hasText: "feat/login" }).locator(".copy").click();
+    await frame.locator("#list li", { hasText: "feat/login" }).getByRole("button", { name: "Copiar ruta" }).click();
     await frame.locator(".copy.copied").first().waitFor();
     await shot(page, `${theme.file}-copiado`);
     await page.close();
