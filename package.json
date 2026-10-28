@@ -5,6 +5,11 @@
   "version": "0.0.10",
   "publisher": "jondotsoy",
   "license": "MIT",
+  "author": {
+    "name": "Jonathan Delgado",
+    "email": "hi@jon.soy",
+    "url": "https://jon.soy"
+  },
   "icon": "media/icon.png",
   "repository": {
     "type": "git",
@@ -46,7 +51,7 @@
     "icon": "bun scripts/icon.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "package": "vsce package --no-dependencies --skip-license",
+    "package": "vsce package --no-dependencies",
     "ext:dev": "bun run build && code --extensionDevelopmentPath=\"$PWD\""
   },
   "devDependencies": {
