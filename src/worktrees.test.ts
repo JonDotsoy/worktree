@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList, sortByRecentCommit } from "./worktrees";
@@ -118,12 +118,21 @@ describe("listWorktrees", () => {
     commit(join(root, "new"), "2024-03-01T00:00:00Z");
     commit(repo, "2024-02-01T00:00:00Z");
 
-    const worktrees = await listWorktrees(repo);
+    const worktrees = await listWorktrees(join(root, "new"));
     expect(worktrees.map((w) => [w.branch, w.main ?? false])).toEqual([
       ["new", false],
       ["main", true],
       ["old", false],
     ]);
     expect(worktrees[0]?.committedAt).toBe(Date.parse("2024-03-01T00:00:00Z") / 1000);
+
+    // The worktree being observed goes first, even from a subfolder and when it is the oldest.
+    mkdirSync(join(root, "old", "sub"));
+    const fromOld = await listWorktrees(join(root, "old", "sub"));
+    expect(fromOld.map((w) => [w.branch, w.current ?? false])).toEqual([
+      ["old", true],
+      ["new", false],
+      ["main", false],
+    ]);
   });
 });

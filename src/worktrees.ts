@@ -8,6 +8,8 @@ export interface Worktree {
   path: string;
   /** The main worktree, the first one listed by git. */
   main?: boolean;
+  /** The worktree that `cwd` belongs to, the one the view is observing. */
+  current?: boolean;
   head?: string;
   /** Committer date of HEAD, in seconds since the epoch. */
   committedAt?: number;
@@ -77,17 +79,26 @@ async function commitDates(cwd: string, heads: string[]): Promise<Map<string, nu
   return dates;
 }
 
-/** Lists the worktrees, most recent commit first. */
+/** Moves the current worktree to the top, keeping the order of the rest. */
+function currentFirst(worktrees: Worktree[]): Worktree[] {
+  return [...worktrees.filter((w) => w.current), ...worktrees.filter((w) => !w.current)];
+}
+
+/** Lists the worktrees, the current one first and then the most recent commit first. */
 export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   const { stdout } = await execFileAsync("git", ["worktree", "list", "--porcelain"], { cwd });
   const worktrees = parseWorktreeList(stdout);
   if (worktrees[0]) worktrees[0].main = true;
 
+  const { stdout: toplevel } = await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd });
+  const current = worktrees.find((w) => w.path === toplevel.trim());
+  if (current) current.current = true;
+
   const dates = await commitDates(cwd, [...new Set(worktrees.flatMap((w) => (w.head ? [w.head] : [])))]);
   for (const worktree of worktrees) {
     if (worktree.head) worktree.committedAt = dates.get(worktree.head);
   }
-  return sortByRecentCommit(worktrees);
+  return currentFirst(sortByRecentCommit(worktrees));
 }
 
 export interface CreateWorktreeInput {
