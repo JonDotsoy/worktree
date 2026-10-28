@@ -119,7 +119,7 @@ El workflow **Release** (`.github/workflows/release.yml`) se ejecuta a mano desd
 *Actions → Release → Run workflow*. Elige `patch` (por defecto), `minor` o `major`, y el
 workflow:
 
-1. Revisa tipos y corre los tests.
+1. Revisa tipos y corre los tests (instalando Chromium de Playwright, como el CI).
 2. Sube la versión en `package.json`.
 3. Empaqueta la extensión con `vsce` (`worktree-<versión>.vsix`).
 4. Hace commit de la versión (`chore(release): v<versión>`), crea el tag `v<versión>` y
