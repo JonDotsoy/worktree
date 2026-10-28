@@ -30,17 +30,12 @@
     "views": {
       "worktree": [
         {
+          "type": "webview",
           "id": "worktree.list",
           "name": "Worktrees"
         }
       ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "worktree.list",
-        "contents": "Aquí se mostrarán los worktrees del repositorio."
-      }
-    ]
+    }
   },
   "scripts": {
     "build": "bun build ./src/extension.ts --outdir ./dist --target node --format cjs --external vscode --sourcemap=linked",

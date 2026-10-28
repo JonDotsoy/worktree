@@ -16,6 +16,10 @@ bun ext:dev
 con la extensión cargada en modo desarrollo (`--extensionDevelopmentPath`). Verás el
 icono de **Worktree** en la barra de actividades.
 
+Al abrir la vista, la extensión levanta un servidor HTTP local (`127.0.0.1`, puerto
+aleatorio) que sirve los archivos de `web/`, y los muestra en un webview dentro de la
+barra lateral. El servidor se cierra al desactivar la extensión.
+
 Otros scripts:
 
 - `bun run build`: compila `src/extension.ts` a `dist/extension.js`.

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Worktree</title>
+  <style>
+    :root {
+      --color-lime-spark: #bfff5a;
+      --color-paper-white: #fcfcfd;
+      --color-obsidian: #0a0d16;
+      --color-carbon: #151720;
+      --color-pewter: #6b6d72;
+      --color-mist-gray: #ebeef7;
+      --color-slate-edge: #d5d9e8;
+      --font-sans: "IBM Plex Sans", Inter, system-ui, sans-serif;
+      --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      font-family: var(--font-sans);
+      color: var(--color-carbon);
+      background-color: var(--color-paper-white);
+      background-image:
+        linear-gradient(rgba(235, 238, 247, 0.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(235, 238, 247, 0.6) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--color-pewter);
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.021em;
+      color: var(--color-obsidian);
+    }
+    .card {
+      padding: 16px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 14px;
+      background: var(--color-paper-white);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 56px;
+      background: var(--color-lime-spark);
+      color: var(--color-obsidian);
+      font-weight: 600;
+      font-size: 13px;
+    }
+    code { font-family: var(--font-mono); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <p class="eyebrow">Git worktrees</p>
+  <h1>Worktree</h1>
+  <div class="card">
+    <span class="status">Servidor activo</span>
+    <p>Servido desde <code id="origin"></code></p>
+  </div>
+  <script>
+    document.getElementById("origin").textContent = location.host;
+  </script>
+</body>
+</html>
