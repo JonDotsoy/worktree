@@ -2,6 +2,18 @@
 
 Este documento describe lo que hace la extensión **Worktree** en tu equipo: qué archivos crea y lee, qué comandos ejecuta y qué expone en red. Refleja el código de `src/` y `web/`.
 
+## Reportar una vulnerabilidad
+
+Si encuentras un problema de seguridad, escribe a **hi@jon.soy** con una descripción, los pasos para reproducirlo y la versión afectada. Por favor, no abras un issue público con los detalles hasta que haya una corrección.
+
+## A quién notificar
+
+- **Vulnerabilidades y parches de seguridad:** al mantenedor, [@JonDotsoy](https://github.com/JonDotsoy), en **hi@jon.soy**. Es la única persona responsable del proyecto y quien revisa cada pull request (ver `CODEOWNERS`).
+- **Parches propuestos:** si ya tienes una corrección, descríbela en el mismo correo o envíala como pull request contra `develop` una vez acordada la divulgación. Hasta entonces, no la publiques.
+- **Errores que no son de seguridad:** abre un issue en [github.com/JonDotsoy/worktree/issues](https://github.com/JonDotsoy/worktree/issues).
+
+Las correcciones de seguridad se publican en una nueva versión de la extensión, que se descarga desde [Releases](https://github.com/JonDotsoy/worktree/releases).
+
 ## Resumen
 
 - La extensión **no envía datos a internet**. No hay telemetría ni llamadas a servicios externos.
@@ -86,15 +98,3 @@ El botón de copiar usa `navigator.clipboard.writeText` (con `document.execComma
 ## Red
 
 La extensión no hace ninguna petición a servidores externos. La única comunicación es entre el `iframe` y el servidor local en `127.0.0.1`. La política de seguridad de contenido de la vista de VS Code solo permite cargar como marco el origen del servidor local.
-
-## Reportar una vulnerabilidad
-
-Si encuentras un problema de seguridad, escribe a **hi@jon.soy** con una descripción, los pasos para reproducirlo y la versión afectada. Por favor, no abras un issue público con los detalles hasta que haya una corrección.
-
-## A quién notificar
-
-- **Vulnerabilidades y parches de seguridad:** al mantenedor, [@JonDotsoy](https://github.com/JonDotsoy), en **hi@jon.soy**. Es la única persona responsable del proyecto y quien revisa cada pull request (ver `CODEOWNERS`).
-- **Parches propuestos:** si ya tienes una corrección, descríbela en el mismo correo o envíala como pull request contra `develop` una vez acordada la divulgación. Hasta entonces, no la publiques.
-- **Errores que no son de seguridad:** abre un issue en [github.com/JonDotsoy/worktree/issues](https://github.com/JonDotsoy/worktree/issues).
-
-Las correcciones de seguridad se publican en una nueva versión de la extensión, que se descarga desde [Releases](https://github.com/JonDotsoy/worktree/releases).
