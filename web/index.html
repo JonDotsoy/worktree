@@ -256,7 +256,11 @@
           const row = el("div", "path-row");
           row.append(el("div", "path", tildify(worktree.path)), copyButton(worktree.path));
           item.append(title, row);
-          if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
+          if (worktree.committedAt) {
+            const date = el("div", "date", relativeTime(worktree.committedAt));
+            date.title = fullDate(worktree.committedAt);
+            item.append(date);
+          }
           return item;
         }),
       );
@@ -264,6 +268,11 @@
 
     const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
     const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+
+    /** Full local date and time with the time zone, shown as a tooltip. */
+    function fullDate(seconds) {
+      return new Date(seconds * 1000).toLocaleString("es", { dateStyle: "full", timeStyle: "long" });
+    }
 
     function relativeTime(seconds) {
       const diff = seconds - Date.now() / 1000;
