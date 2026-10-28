@@ -9,7 +9,9 @@ class WorktreeViewProvider implements vscode.WebviewViewProvider {
   async resolveWebviewView(view: vscode.WebviewView): Promise<void> {
     view.webview.options = { enableScripts: true };
 
-    this.server ??= startWebServer(vscode.Uri.joinPath(this.extensionUri, "web").fsPath);
+    this.server ??= startWebServer(vscode.Uri.joinPath(this.extensionUri, "web").fsPath, {
+      cwd: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    });
     const { url } = await this.server;
     const src = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString(true);
 

@@ -11,6 +11,7 @@
       --color-obsidian: #0a0d16;
       --color-carbon: #151720;
       --color-pewter: #6b6d72;
+      --color-graphite: #474950;
       --color-mist-gray: #ebeef7;
       --color-slate-edge: #d5d9e8;
       --font-sans: "IBM Plex Sans", Inter, system-ui, sans-serif;
@@ -45,37 +46,117 @@
       letter-spacing: -0.021em;
       color: var(--color-obsidian);
     }
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .header h1 { margin: 0; }
+    button {
+      padding: 4px 12px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 56px;
+      background: var(--color-paper-white);
+      color: var(--color-obsidian);
+      font: 600 13px var(--font-sans);
+      cursor: pointer;
+    }
+    button:hover { background: var(--color-lime-spark); border-color: var(--color-lime-spark); }
+    .list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .card {
-      padding: 16px;
+      padding: 12px 16px;
       border: 1px solid var(--color-slate-edge);
       border-radius: 14px;
       background: var(--color-paper-white);
       font-size: 14px;
       line-height: 1.5;
     }
-    .status {
-      display: inline-flex;
+    .branch {
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      padding: 4px 12px;
-      border-radius: 56px;
-      background: var(--color-lime-spark);
-      color: var(--color-obsidian);
       font-weight: 600;
-      font-size: 13px;
+      color: var(--color-obsidian);
+      word-break: break-all;
     }
+    .path {
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-graphite);
+      word-break: break-all;
+    }
+    .badge {
+      padding: 0 8px;
+      border-radius: 56px;
+      background: var(--color-mist-gray);
+      color: var(--color-graphite);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge.main { background: var(--color-lime-spark); color: var(--color-obsidian); }
+    .message { color: var(--color-pewter); font-size: 14px; }
+    .message.error { color: #b42318; }
     code { font-family: var(--font-mono); font-size: 12px; }
   </style>
 </head>
 <body>
   <p class="eyebrow">Git worktrees</p>
-  <h1>Worktree</h1>
-  <div class="card">
-    <span class="status">Servidor activo</span>
-    <p>Servido desde <code id="origin"></code></p>
+  <div class="header">
+    <h1>Worktree</h1>
+    <button id="refresh" type="button">Actualizar</button>
   </div>
+  <p id="message" class="message">Cargando…</p>
+  <ul id="list" class="list"></ul>
   <script>
-    document.getElementById("origin").textContent = location.host;
+    const list = document.getElementById("list");
+    const message = document.getElementById("message");
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function render(worktrees) {
+      list.replaceChildren(
+        ...worktrees.map((worktree, index) => {
+          const item = el("li", "card");
+          const title = el("div", "branch");
+          const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
+          title.append(el("span", "", name));
+          if (index === 0) title.append(el("span", "badge main", "principal"));
+          if (worktree.detached) title.append(el("span", "badge", "detached"));
+          if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
+          if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
+          item.append(title, el("div", "path", worktree.path));
+          return item;
+        }),
+      );
+    }
+
+    async function load() {
+      message.className = "message";
+      message.textContent = "Cargando…";
+      try {
+        const response = await fetch("/api/worktrees");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        render(data.worktrees);
+        message.textContent = `${data.worktrees.length} worktree(s) en ${data.cwd}`;
+      } catch (error) {
+        list.replaceChildren();
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", load);
+    load();
   </script>
 </body>
 </html>

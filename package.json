@@ -41,6 +41,7 @@
     "build": "bun build ./src/extension.ts --outdir ./dist --target node --format cjs --external vscode --sourcemap=linked",
     "watch": "bun run build --watch",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "ext:dev": "bun run build && code --extensionDevelopmentPath=\"$PWD\""
   },
   "devDependencies": {

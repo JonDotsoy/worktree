@@ -18,12 +18,16 @@ icono de **Worktree** en la barra de actividades.
 
 Al abrir la vista, la extensión levanta un servidor HTTP local (`127.0.0.1`, puerto
 aleatorio) que sirve los archivos de `web/`, y los muestra en un webview dentro de la
-barra lateral. El servidor se cierra al desactivar la extensión.
+barra lateral. La web consulta `GET /api/worktrees`, que ejecuta
+`git worktree list --porcelain` en la primera carpeta abierta del workspace, y muestra
+cada worktree con su rama (o commit si está *detached*) y su ruta. El servidor se
+cierra al desactivar la extensión.
 
 Otros scripts:
 
 - `bun run build`: compila `src/extension.ts` a `dist/extension.js`.
 - `bun run watch`: recompila al guardar.
 - `bun run typecheck`: revisa los tipos con TypeScript.
+- `bun test`: ejecuta los tests.
 
 También puedes usar <kbd>F5</kbd> dentro de VS Code (configuración *Run Extension*).

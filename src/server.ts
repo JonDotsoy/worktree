@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
+import { listWorktrees } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -17,10 +18,34 @@ export interface WebServer {
   close(): Promise<void>;
 }
 
-/** Serves the static files in `root` on a random port bound to localhost. */
-export async function startWebServer(root: string): Promise<WebServer> {
+export interface WebServerOptions {
+  /** Directory where git commands run, usually the first workspace folder. */
+  cwd(): string | undefined;
+}
+
+/** Serves the static files in `root` and the `/api` routes on a random port bound to localhost. */
+export async function startWebServer(root: string, options: WebServerOptions): Promise<WebServer> {
   const server: Server = createServer(async (req, res) => {
     const pathname = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
+
+    if (pathname === "/api/worktrees") {
+      const cwd = options.cwd();
+      const sendJson = (status: number, body: unknown) => {
+        res.writeHead(status, { "Content-Type": contentTypes[".json"], "Cache-Control": "no-store" });
+        res.end(JSON.stringify(body));
+      };
+      if (!cwd) {
+        sendJson(404, { error: "No hay una carpeta abierta en VS Code." });
+        return;
+      }
+      try {
+        sendJson(200, { cwd, worktrees: await listWorktrees(cwd) });
+      } catch (error) {
+        sendJson(500, { cwd, error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+
     const relative = pathname.endsWith("/") ? `${pathname}index.html` : pathname;
     const file = normalize(join(root, relative));
 
