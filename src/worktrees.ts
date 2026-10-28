@@ -107,14 +107,21 @@ export interface CreateWorktreeInput {
   branch: string;
   /** Commit-ish for a new branch. Defaults to the configured base branch, then the current HEAD. */
   base?: string;
-  /** Target directory. Defaults to a sibling of the main worktree, see `defaultWorktreePath`. */
+  /** Target directory. Defaults to `<worktrees dir>/<branch>` under the project root, see `defaultWorktreePath`. */
   path?: string;
 }
 
-/** `/repos/app` + `feature/login` → `/repos/app-feature-login`. */
-export function defaultWorktreePath(mainWorktreePath: string, branch: string): string {
-  const slug = branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
-  return join(dirname(mainWorktreePath), `${basename(mainWorktreePath)}-${slug}`);
+/** Folder for new worktrees when none is configured, relative to the project root. */
+export const DEFAULT_WORKTREES_DIR = ".worktree";
+
+/** `feature/login` → `feature-login`; also used by the page to preview the path. */
+export function branchSlug(branch: string): string {
+  return branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/** `/repos/app` + `feature/login` → `/repos/app/.worktree/feature-login`. */
+export function defaultWorktreePath(mainWorktreePath: string, branch: string, dir = DEFAULT_WORKTREES_DIR): string {
+  return resolve(mainWorktreePath, dir, branchSlug(branch));
 }
 
 async function git(cwd: string, args: string[]): Promise<string> {
@@ -148,6 +155,7 @@ async function settingsFile(cwd: string): Promise<string> {
 
 interface Settings {
   baseBranch?: string;
+  worktreesDir?: string;
 }
 
 async function readSettings(cwd: string): Promise<Settings> {
@@ -164,6 +172,15 @@ export async function getBaseBranch(cwd: string): Promise<string> {
   return typeof baseBranch === "string" ? baseBranch : "";
 }
 
+async function writeSetting(cwd: string, key: keyof Settings, value: string): Promise<void> {
+  const file = await settingsFile(cwd);
+  const settings = await readSettings(cwd);
+  if (value) settings[key] = value;
+  else delete settings[key];
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
 /** Stores the base branch in the settings file; an empty value clears it. */
 export async function setBaseBranch(cwd: string, value: string): Promise<void> {
   const base = value.trim();
@@ -173,12 +190,20 @@ export async function setBaseBranch(cwd: string, value: string): Promise<void> {
       throw new Error(`La rama "${base}" no existe.`);
     });
   }
-  const file = await settingsFile(cwd);
-  const settings = await readSettings(cwd);
-  if (base) settings.baseBranch = base;
-  else delete settings.baseBranch;
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(settings, null, 2)}\n`);
+  await writeSetting(cwd, "baseBranch", base);
+}
+
+/** Folder new worktrees go in, relative to the project root unless absolute. */
+export async function getWorktreesDir(cwd: string): Promise<string> {
+  const { worktreesDir } = await readSettings(cwd);
+  return typeof worktreesDir === "string" && worktreesDir ? worktreesDir : DEFAULT_WORKTREES_DIR;
+}
+
+/** Stores the worktrees folder; an empty value goes back to the default. */
+export async function setWorktreesDir(cwd: string, value: string): Promise<void> {
+  const dir = value.trim();
+  if (dir === DEFAULT_WORKTREES_DIR || dir === `${DEFAULT_WORKTREES_DIR}/`) return writeSetting(cwd, "worktreesDir", "");
+  await writeSetting(cwd, "worktreesDir", dir);
 }
 
 /** Local and remote branch names, for suggestions. */
@@ -198,7 +223,7 @@ export async function createWorktree(cwd: string, input: CreateWorktreeInput): P
   const main = (await listWorktrees(cwd)).find((w) => w.main);
   const path = input.path?.trim()
     ? resolve(cwd, input.path.trim())
-    : defaultWorktreePath(main?.path ?? cwd, branch);
+    : defaultWorktreePath(main?.path ?? cwd, branch, await getWorktreesDir(cwd));
 
   const args = (await branchExists(cwd, branch))
     ? ["worktree", "add", "--", path, branch]

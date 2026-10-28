@@ -204,6 +204,10 @@
       <select name="baseBranch"></select>
       <small>Opcional. Se usa al crear una rama nueva si no indicas otra base. Se guarda en <code>.git/_worktree_configs</code>.</small>
     </label>
+    <label>Carpeta base de worktrees
+      <input name="worktreesDir" placeholder=".worktree" autocomplete="off">
+      <small>Relativa a la raíz del proyecto. Un worktree "foo" queda en <code>&lt;carpeta&gt;/foo</code>. Por defecto, <code>.worktree</code>.</small>
+    </label>
     <p id="settings-message" class="message" hidden></p>
     <div class="actions">
       <button type="button" id="settings-close">Volver</button>
@@ -217,11 +221,11 @@
     </label>
     <label>Base
       <input name="base" placeholder="main" autocomplete="off">
-      <small>Opcional. Por defecto, HEAD.</small>
+      <small>Opcional. Por defecto, <code id="base-default">HEAD</code>.</small>
     </label>
     <label>Ruta
-      <input name="path" placeholder="../repo-feature-mi-cambio" autocomplete="off">
-      <small>Opcional. Por defecto, una carpeta junto al repo.</small>
+      <input name="path" placeholder=".worktree/feature-mi-cambio" autocomplete="off">
+      <small>Opcional. Por defecto, <code id="path-default">.worktree/&lt;nombre&gt;</code>.</small>
     </label>
     <p id="form-message" class="message error" hidden></p>
     <div class="actions">
@@ -460,12 +464,34 @@
     const settingsMessage = document.getElementById("settings-message");
     const mainView = document.getElementById("main-view");
 
+    const settingsState = { baseBranch: "", worktreesDir: ".worktree" };
+
+    /** Same slug rule as the backend (`branchSlug`), so the placeholder matches the real path. */
+    function slug(branch) {
+      return branch.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    /** Shows the configured defaults as placeholders and in the hints of the create form. */
+    function updateFormDefaults() {
+      const dir = settingsState.worktreesDir.replace(/\/+$/, "");
+      const name = slug(form.elements.branch.value.trim()) || "feature-mi-cambio";
+      form.elements.base.placeholder = settingsState.baseBranch || "HEAD";
+      form.elements.path.placeholder = `${dir}/${name}`;
+      document.getElementById("base-default").textContent = settingsState.baseBranch || "HEAD";
+      document.getElementById("path-default").textContent = `${dir}/<nombre>`;
+    }
+
+    form.elements.branch.addEventListener("input", updateFormDefaults);
+
     function applySettings(data) {
       const names = data.branches.includes(data.baseBranch) || !data.baseBranch ? data.branches : [data.baseBranch, ...data.branches];
       const option = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
       settings.elements.baseBranch.replaceChildren(option("", "HEAD (por defecto)"), ...names.map((name) => option(name, name)));
       settings.elements.baseBranch.value = data.baseBranch;
-      form.elements.base.placeholder = data.baseBranch || "main";
+      settings.elements.worktreesDir.value = data.worktreesDir;
+      settingsState.baseBranch = data.baseBranch;
+      settingsState.worktreesDir = data.worktreesDir;
+      updateFormDefaults();
     }
 
     function showSettingsMessage(text, error) {
@@ -492,14 +518,13 @@
 
     // Saves as soon as the selection changes; there is no save button.
     settings.addEventListener("submit", (event) => event.preventDefault());
-    settings.elements.baseBranch.addEventListener("change", async () => {
-      const select = settings.elements.baseBranch;
-      select.disabled = true;
+    async function saveSettings(field) {
+      field.disabled = true;
       try {
         const response = await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseBranch: settings.elements.baseBranch.value }),
+          body: JSON.stringify({ [field.name]: field.value }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
@@ -508,9 +533,13 @@
       } catch (error) {
         showSettingsMessage(error.message, true);
       } finally {
-        select.disabled = false;
+        field.disabled = false;
       }
-    });
+    }
+
+    for (const name of ["baseBranch", "worktreesDir"]) {
+      settings.elements[name].addEventListener("change", (event) => saveSettings(event.target));
+    }
 
     document.getElementById("settings-toggle").addEventListener("click", () => toggleSettings(settings.hidden));
     document.getElementById("settings-close").addEventListener("click", () => toggleSettings(false));

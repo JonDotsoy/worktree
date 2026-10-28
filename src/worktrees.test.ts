@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, getBaseBranch, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, getWorktreesDir, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -48,9 +48,10 @@ describe("parseWorktreeList", () => {
 });
 
 describe("defaultWorktreePath", () => {
-  test("creates a sibling directory named after the branch", () => {
-    expect(defaultWorktreePath("/repos/app", "feature/login")).toBe("/repos/app-feature-login");
-    expect(defaultWorktreePath("/repos/app", "fix it!")).toBe("/repos/app-fix-it");
+  test("creates a directory named after the branch inside the worktrees folder", () => {
+    expect(defaultWorktreePath("/repos/app", "feature/login")).toBe("/repos/app/.worktree/feature-login");
+    expect(defaultWorktreePath("/repos/app", "fix it!")).toBe("/repos/app/.worktree/fix-it");
+    expect(defaultWorktreePath("/repos/app", "foo", "../trees")).toBe("/repos/trees/foo");
   });
 });
 
@@ -67,7 +68,7 @@ describe("createWorktree", () => {
   test("creates a new branch in the default path", async () => {
     const repo = initRepo();
     const path = await createWorktree(repo, { branch: "feature/login" });
-    expect(path).toBe(`${repo}-feature-login`);
+    expect(path).toBe(join(repo, ".worktree", "feature-login"));
     const worktrees = await listWorktrees(repo);
     expect(worktrees.map((w) => [w.path, w.branch])).toEqual([
       [repo, "main"],
@@ -163,5 +164,12 @@ describe("base branch setting", () => {
 
     await setBaseBranch(repo, "");
     expect(await getBaseBranch(repo)).toBe("");
+
+    expect(await getWorktreesDir(repo)).toBe(".worktree");
+    await setWorktreesDir(repo, "../trees");
+    expect(await getWorktreesDir(repo)).toBe("../trees");
+    expect(await createWorktree(repo, { branch: "other" })).toBe(join(root, "trees", "other"));
+    await setWorktreesDir(repo, "");
+    expect(await getWorktreesDir(repo)).toBe(".worktree");
   });
 });

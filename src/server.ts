@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, gitCommonDir, listBranches, listWorktrees, setBaseBranch } from "./worktrees";
+import { createWorktree, getBaseBranch, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -139,13 +139,18 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             sendJson(403, { error: "Forbidden" });
             return;
           }
-          const { baseBranch } = (await readJson(req)) as { baseBranch?: unknown };
-          await setBaseBranch(cwd, typeof baseBranch === "string" ? baseBranch : "");
+          const input = (await readJson(req)) as { baseBranch?: unknown; worktreesDir?: unknown };
+          if (typeof input.baseBranch === "string") await setBaseBranch(cwd, input.baseBranch);
+          if (typeof input.worktreesDir === "string") await setWorktreesDir(cwd, input.worktreesDir);
         } else if (req.method !== "GET") {
           sendJson(405, { error: "Method not allowed" });
           return;
         }
-        sendJson(200, { baseBranch: await getBaseBranch(cwd), branches: await listBranches(cwd) });
+        sendJson(200, {
+          baseBranch: await getBaseBranch(cwd),
+          worktreesDir: await getWorktreesDir(cwd),
+          branches: await listBranches(cwd),
+        });
       } catch (error) {
         sendJson(400, { error: error instanceof Error ? error.message : String(error) });
       }
