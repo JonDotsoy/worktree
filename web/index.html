@@ -244,6 +244,7 @@
     .menu button { display: flex; align-items: center; gap: 8px; }
     .menu button .hint { margin-left: auto; padding-left: 16px; color: var(--fg-muted); font-size: 11px; font-weight: 400; }
     .menu button:hover .hint, .menu button:focus-visible .hint { color: inherit; opacity: 0.8; }
+    .menu button.on .ico { fill: currentColor; }
     .menu hr { height: 1px; margin: 4px 6px; border: 0; background: var(--border); }
     .menu hr[hidden] { display: none; }
     .menu button:hover, .menu button:focus-visible { background: var(--menu-hover); color: var(--menu-hover-fg); outline: none; }
@@ -375,6 +376,7 @@
   </div>
   <div id="menu" class="menu" role="menu" hidden>
     <button id="menu-open" type="button" role="menuitem"></button>
+    <button id="menu-star" type="button" role="menuitem"></button>
     <hr role="separator">
     <button id="menu-copy-abs" type="button" role="menuitem"></button>
     <button id="menu-copy-rel" type="button" role="menuitem"></button>
@@ -600,21 +602,23 @@
     }
 
     /** Star toggle; the server answers with the reordered list, starred worktrees first. */
+    async function toggleStar(worktree) {
+      try {
+        const response = await fetch("/api/worktrees/star", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: worktree.path, starred: !worktree.starred }),
+        });
+        const data = await response.json();
+        if (response.ok) showSnapshot(data);
+      } catch {
+        // Keeping the current list is enough; the next refresh shows the real state.
+      }
+    }
+
     function starButton(worktree) {
       const label = worktree.starred ? "Quitar estrella" : "Marcar con estrella";
-      const button = iconButton("star", label, async () => {
-        try {
-          const response = await fetch("/api/worktrees/star", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: worktree.path, starred: !worktree.starred }),
-          });
-          const data = await response.json();
-          if (response.ok) showSnapshot(data);
-        } catch {
-          // Keeping the current list is enough; the next refresh shows the real state.
-        }
-      });
+      const button = iconButton("star", label, () => toggleStar(worktree));
       button.classList.add("star");
       button.classList.toggle("on", Boolean(worktree.starred));
       button.setAttribute("aria-pressed", String(Boolean(worktree.starred)));
@@ -751,6 +755,11 @@
     setIcon(menuOpen, "open");
     menuOpen.append("Abrir");
     menuOpen.append(el("span", "hint", "Enter"));
+    const menuStar = document.getElementById("menu-star");
+    menuStar.addEventListener("click", () => {
+      hideMenu();
+      toggleStar(menuWorktree);
+    });
     for (const [id, label] of [["menu-copy-abs", "Copiar ruta absoluta"], ["menu-copy-rel", "Copiar ruta relativa"]]) {
       const button = document.getElementById(id);
       setIcon(button, "copy");
@@ -775,6 +784,9 @@
       menuWorktree = worktree;
       // The main worktree (and the one open in VS Code) cannot be removed, so no button.
       menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);
+      setIcon(menuStar, "star");
+      menuStar.classList.toggle("on", Boolean(worktree.starred));
+      menuStar.append(worktree.starred ? "Quitar estrella" : "Agregar estrella");
       menuReturnFocus = document.activeElement;
       menu.hidden = false;
       const { width, height } = menu.getBoundingClientRect();

@@ -104,7 +104,7 @@ test("el menú se abre con el teclado, se recorre con las flechas y devuelve el 
   await page.locator("#menu").waitFor();
   expect(await page.evaluate("document.activeElement?.id")).toBe("menu-open");
   await page.keyboard.press("ArrowDown");
-  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-copy-abs");
+  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-star");
   await page.keyboard.press("End");
   expect(await page.evaluate("document.activeElement?.id")).toBe("menu-delete");
   await page.keyboard.press("ArrowDown");
@@ -130,5 +130,22 @@ test("el menú copia la ruta absoluta y la relativa a la carpeta abierta", async
   await page.locator("#menu-copy-rel").click();
   await page.locator("#message", { hasText: "Copiado: ../app-x" }).waitFor();
   expect(await page.evaluate("window.__copied")).toBe("../app-x");
+  await page.close();
+});
+
+test("el menú agrega y quita la estrella según el estado", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  const item = page.locator("#list li", { hasText: "feat/x" });
+  await item.waitFor();
+  await item.click({ button: "right", position: { x: 40, y: 20 } });
+  expect(await page.locator("#menu-star").textContent()).toContain("Agregar estrella");
+  await page.locator("#menu-star").click();
+  await page.locator("#list li", { hasText: "feat/x" }).locator("button.star.on").waitFor();
+
+  await item.click({ button: "right", position: { x: 40, y: 20 } });
+  expect(await page.locator("#menu-star").textContent()).toContain("Quitar estrella");
+  await page.locator("#menu-star").click();
+  await page.locator("#list li", { hasText: "feat/x" }).locator("button.star.on").waitFor({ state: "detached" });
   await page.close();
 });

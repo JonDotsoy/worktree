@@ -104,7 +104,7 @@ The sidebar view is an `iframe` that loads a page served by the extension itself
 
 ## Clipboard
 
-The copy button uses `navigator.clipboard.writeText` (with `document.execCommand("copy")` as a fallback) to copy a worktree's path. It only **writes** to the clipboard when you click the button; it never reads it.
+The copy button and the **Copiar ruta absoluta** / **Copiar ruta relativa** menu items use `navigator.clipboard.writeText` (with `document.execCommand("copy")` as a fallback) to copy a worktree's path. It only **writes** to the clipboard when you click one of them; it never reads it.
 
 ## Network
 
