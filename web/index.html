@@ -117,6 +117,24 @@
       color: var(--fg-muted);
       word-break: break-all;
     }
+    .path-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .copy {
+      flex: none;
+      margin-top: 4px;
+      padding: 0 4px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      font-size: 12px;
+      line-height: 1.4;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    .copy:hover, .copy:focus-visible { opacity: 1; }
     .badge {
       padding: 0 8px;
       border-radius: 56px;
@@ -235,7 +253,9 @@
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
-          item.append(title, el("div", "path", tildify(worktree.path)));
+          const row = el("div", "path-row");
+          row.append(el("div", "path", tildify(worktree.path)), copyButton(worktree.path));
+          item.append(title, row);
           if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
           return item;
         }),
@@ -251,6 +271,39 @@
         if (Math.abs(diff) >= size) return `Último commit ${rtf.format(Math.round(diff / size), unit)}`;
       }
       return "Último commit hace un momento";
+    }
+
+    /** Copies the real (absolute) path; the button shows ✅ briefly on success. */
+    function copyButton(path) {
+      const button = el("button", "copy", "📋");
+      button.type = "button";
+      button.title = "Copiar ruta";
+      button.setAttribute("aria-label", "Copiar ruta");
+      for (const type of ["dblclick", "keydown"]) button.addEventListener(type, (event) => event.stopPropagation());
+      button.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!(await copyText(path))) return;
+        button.textContent = "✅";
+        setTimeout(() => (button.textContent = "📋"), 1200);
+      });
+      return button;
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.append(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        area.remove();
+        return ok;
+      }
     }
 
     let home = "";
