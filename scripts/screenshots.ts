@@ -91,7 +91,7 @@ try {
 
   page = await open();
   await page.locator("#list li", { hasText: "feat/login" }).locator(".copy").click();
-  await page.locator("#list li .copy", { hasText: "✅" }).waitFor();
+  await page.locator("#list li .copy.copied").waitFor();
   await shot(page, "copiar-ruta");
   await page.close();
 
@@ -121,35 +121,58 @@ try {
   await shot(page, "estados");
   await page.close();
 
-  // The view inside VS Code: a dark frame (activity bar + side bar) hosting the real UI.
+  // The view inside VS Code: a frame (activity bar + side bar) hosting the real UI, dark and light.
+  const themes = {
+    dark: {
+      file: "vscode", kind: "dark", frame: { page: "#1e1e1e", bar: "#333", barIcon: "#858585", barOn: "#fff", side: "#252526", fg: "#ccc", muted: "#858585" },
+      vars: {
+        "--vscode-sideBar-background": "#252526", "--vscode-editor-background": "#1e1e1e", "--vscode-foreground": "#cccccc",
+        "--vscode-descriptionForeground": "#9d9d9d", "--vscode-button-background": "#0e639c", "--vscode-button-foreground": "#ffffff",
+        "--vscode-button-hoverBackground": "#1177bb", "--vscode-input-background": "#3c3c3c", "--vscode-input-foreground": "#cccccc",
+        "--vscode-widget-border": "#454545", "--vscode-panel-border": "#454545", "--vscode-badge-background": "#4d4d4d",
+        "--vscode-badge-foreground": "#ffffff", "--vscode-focusBorder": "#007fd4", "--vscode-list-hoverBackground": "#2a2d2e",
+      },
+    },
+    light: {
+      file: "vscode-claro", kind: "light", frame: { page: "#ffffff", bar: "#2c2c2c", barIcon: "#c5c5c5", barOn: "#fff", side: "#f3f3f3", fg: "#616161", muted: "#8a8a8a" },
+      vars: {
+        "--vscode-sideBar-background": "#f3f3f3", "--vscode-editor-background": "#ffffff", "--vscode-foreground": "#616161",
+        "--vscode-descriptionForeground": "#717171", "--vscode-button-background": "#007acc", "--vscode-button-foreground": "#ffffff",
+        "--vscode-button-hoverBackground": "#0062a3", "--vscode-input-background": "#ffffff", "--vscode-input-foreground": "#616161",
+        "--vscode-widget-border": "#c8c8c8", "--vscode-panel-border": "#c8c8c8", "--vscode-badge-background": "#c4c4c4",
+        "--vscode-badge-foreground": "#333333", "--vscode-focusBorder": "#0090f1", "--vscode-list-hoverBackground": "#e8e8e8",
+      },
+    },
+  };
   const vscode = await browser.newContext({ viewport: { width: 760, height: 520 }, deviceScaleFactor: 2 });
-  page = await vscode.newPage();
-  await page.setContent(`<!doctype html><style>
-    *{box-sizing:border-box}body{margin:0;display:flex;height:100vh;background:#1e1e1e;font:13px system-ui,sans-serif;color:#ccc}
-    .bar{width:48px;background:#333;display:flex;flex-direction:column;align-items:center;gap:22px;padding-top:14px}
-    .bar i{width:22px;height:22px;border:2px solid #858585;border-radius:5px}.bar i.on{border-color:#fff;background:#fff3}
-    .side{width:320px;background:#252526;display:flex;flex-direction:column}
+  for (const theme of Object.values(themes)) {
+    const f = theme.frame;
+    page = await vscode.newPage();
+    await page.setContent(`<!doctype html><style>
+    *{box-sizing:border-box}body{margin:0;display:flex;height:100vh;background:${f.page};font:13px system-ui,sans-serif;color:${f.fg}}
+    .bar{width:48px;background:${f.bar};display:flex;flex-direction:column;align-items:center;gap:22px;padding-top:14px}
+    .bar i{width:22px;height:22px;border:2px solid ${f.barIcon};border-radius:5px}.bar i.on{border-color:${f.barOn};background:#fff3}
+    .side{width:320px;background:${f.side};display:flex;flex-direction:column}
     .side h1{margin:0;font-size:11px;letter-spacing:.08em;font-weight:400;padding:10px 20px}
     .side h2{margin:0;font-size:11px;font-weight:700;padding:4px 8px;letter-spacing:.04em}
-    iframe{flex:1;border:0;background:#252526}
-    .ed{flex:1;display:flex;align-items:center;justify-content:center;color:#858585;font-size:15px}
+    iframe{flex:1;border:0;background:${f.side}}
+    .ed{flex:1;display:flex;align-items:center;justify-content:center;color:${f.muted};font-size:15px}
   </style><div class="bar"><i></i><i></i><i class="on"></i></div>
   <div class="side"><h1>WORKTREE</h1><h2>⌄ WORKTREES</h2><iframe src="${server.url}"></iframe></div>
   <div class="ed">Worktree</div>`);
-  const frame = page.frameLocator("iframe");
-  await frame.locator("#list li").first().waitFor();
-  await page.evaluate(() => {
-    const vars = {
-      "--vscode-sideBar-background": "#252526", "--vscode-editor-background": "#1e1e1e", "--vscode-foreground": "#cccccc",
-      "--vscode-descriptionForeground": "#9d9d9d", "--vscode-button-background": "#0e639c", "--vscode-button-foreground": "#ffffff",
-      "--vscode-button-hoverBackground": "#1177bb", "--vscode-input-background": "#3c3c3c", "--vscode-input-foreground": "#cccccc",
-      "--vscode-widget-border": "#454545", "--vscode-panel-border": "#454545", "--vscode-badge-background": "#4d4d4d",
-      "--vscode-badge-foreground": "#ffffff", "--vscode-focusBorder": "#007fd4", "--vscode-list-hoverBackground": "#2a2d2e",
-    };
-    document.querySelector("iframe")!.contentWindow!.postMessage({ type: "vscode-theme", kind: "dark", vars }, "*");
-  });
-  await page.waitForTimeout(300);
-  await shot(page, "vscode");
+    const frame = page.frameLocator("iframe");
+    await frame.locator("#list li").first().waitFor();
+    await page.evaluate(({ kind, vars }) => {
+      document.querySelector("iframe")!.contentWindow!.postMessage({ type: "vscode-theme", kind, vars }, "*");
+    }, { kind: theme.kind, vars: theme.vars });
+    await page.waitForTimeout(300);
+    await shot(page, theme.file);
+    // Copy feedback: the clipboard icon turns into a check.
+    await frame.locator("#list li", { hasText: "feat/login" }).locator(".copy").click();
+    await frame.locator(".copy.copied").first().waitFor();
+    await shot(page, `${theme.file}-copiado`);
+    await page.close();
+  }
 } finally {
   await browser.close();
   await server.close();
