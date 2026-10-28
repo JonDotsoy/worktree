@@ -20,6 +20,7 @@ los worktrees del repositorio abierto:
   muestran abreviadas con `~`.
 - **Descripción:** cada tarjeta permite agregar o editar una nota de texto libre (hasta 500
   caracteres). Para editarla, usa el botón de editar o haz doble clic sobre el texto (sin abrir el worktree). Se guarda sola al salir del campo (o con <kbd>Alt</kbd>+<kbd>Enter</kbd>, <kbd>⌘</kbd>+<kbd>Enter</kbd> en Mac) y la comparten todas las ventanas del repositorio.
+- **Estrella:** marca un worktree con la estrella (tarjeta y estilo compacto) para fijarlo arriba, justo después del actual. Se guarda en `.git/_worktree_configs/starred.json` y la comparten todas las ventanas.
 - **Crear worktree:** formulario con rama, base y ruta opcionales.
 - **Actualización en vivo:** la lista se mantiene al día mediante SSE (Server-Sent Events);
   cuando cambian los datos de git la vista se refresca sola.
