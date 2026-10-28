@@ -121,6 +121,23 @@ try {
   await page.locator("[name=worktreesDir]").dispatchEvent("change");
   await page.close();
 
+  // Compact style: switched on from the settings, rows instead of cards.
+  page = await open();
+  await page.click("#settings-toggle");
+  await page.locator("#settings:not([hidden])").waitFor();
+  await page.check("[name=compact]");
+  await page.locator("#settings-message", { hasText: "Guardado" }).waitFor();
+  await page.click("#settings-close");
+  await page.locator("#list.compact li").first().waitFor();
+  await page.mouse.move(0, 0);
+  await shot(page, "estilo-compacto");
+  await page.click("#settings-toggle");
+  await page.locator("#settings:not([hidden])").waitFor();
+  await shot(page, "configuracion-compacto");
+  await page.uncheck("[name=compact]");
+  await page.locator("#list.compact").waitFor({ state: "detached" });
+  await page.close();
+
   page = await open();
   await page.click("#create");
   await page.fill("[name=branch]", "feat/dashboard");

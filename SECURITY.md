@@ -30,7 +30,7 @@ Everything happens inside the open repository (the first workspace folder).
 | `<project root>/.worktree/.gitignore` | Together with the folder above | A single line, `*`, so git does not list its contents. Only created if it does not exist. |
 | `<project root>/.worktree/<branch>/` | When creating a worktree | Created by `git worktree add`. The name comes from the branch, with any character that is not `\w`, `.` or `-` replaced by `-`. |
 | A path you choose | When creating a worktree with your own folder (path in the form or configured folder) | Created by `git worktree add`. It is resolved relative to the project and may be absolute or outside the repository. |
-| `.git/_worktree_configs/settings.json` | When saving the settings | JSON with `baseBranch` and `worktreesDir`. In a linked worktree it uses the common git directory, that is, the `.git` of the main worktree. |
+| `.git/_worktree_configs/settings.json` | When saving the settings | JSON with `baseBranch`, `worktreesDir` and `compact` (a boolean for the compact list style). In a linked worktree it uses the common git directory, that is, the `.git` of the main worktree. |
 | `.git/_worktree_configs/descriptions.json` | When saving a worktree description | JSON that maps the absolute path of each worktree to its description (up to 500 characters). It lives in the common git directory, so every worktree shares it. On each save, entries for worktrees git no longer lists are removed. |
 | `.git/worktrees/…`, refs and the `.git` file of each worktree | When creating a worktree | Written by `git worktree add`, not by the extension directly. |
 
@@ -38,7 +38,7 @@ The extension **does not modify** your source files or your VS Code settings. It
 
 ## Files it reads
 
-- `.git/_worktree_configs/settings.json`, for the base branch and the worktrees folder.
+- `.git/_worktree_configs/settings.json`, for the base branch, the worktrees folder and the list style.
 - `.git/_worktree_configs/descriptions.json`, for the descriptions shown on each worktree card.
 - The static files in `web/` inside the extension, which the local server serves.
 - The output of `git`, which is where all worktree and branch information comes from.
@@ -78,12 +78,12 @@ The sidebar view is an `iframe` that loads a page served by the extension itself
 - **Host and port:** `127.0.0.1`, a random port assigned by the operating system. It is not reachable from other machines.
 - **When:** it starts the first time the view is shown and closes when the extension is deactivated.
 - **Routes:**
-  - `GET /api/worktrees/events`: Server-Sent Events (SSE) with the worktree list (including their descriptions), the project directory and your home directory. It sends a heartbeat every 25 s.
+  - `GET /api/worktrees/events`: Server-Sent Events (SSE) with the worktree list (including their descriptions), the project directory, your home directory and the list style. It sends a heartbeat every 25 s.
   - `GET /api/worktrees`: the same information as JSON.
   - `POST /api/worktrees`: creates a worktree.
   - `POST /api/worktrees/open`: opens a worktree (only those listed by git).
   - `PUT /api/worktrees/description`: saves the description of a worktree (only those listed by git; text up to 500 characters).
-  - `GET` and `PUT /api/settings`: read and save the base branch and the worktrees folder, and return the available branches.
+  - `GET` and `PUT /api/settings`: read and save the base branch, the worktrees folder and the compact style, and return the available branches.
   - Any other route serves static files from `web/`, checking that the path does not escape that folder.
 - **Write protection:** `POST` and `PUT` (including the description route) require `Host` equal to `127.0.0.1` or `localhost`, an `Origin` header equal to the server's own, and `Content-Type: application/json`. This prevents other websites from making changes (CSRF) or using DNS rebinding to write. The body is limited to 64 KiB.
 - **CORS:** no CORS headers are sent.
