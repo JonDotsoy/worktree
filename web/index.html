@@ -464,11 +464,14 @@
         area.maxLength = DESCRIPTION_MAX;
         area.placeholder = "Describe para qué sirve este worktree";
         area.setAttribute("aria-label", "Descripción del worktree");
-        const hint = el("small", "", "Se guarda al salir del campo. Esc cancela.");
+        const hint = el("small", "", `Se guarda al salir del campo o con ${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘+Enter" : "Alt+Enter"}. Esc cancela.`);
         let cancelled = false;
         area.addEventListener("keydown", (event) => {
           if (event.key === "Escape") {
             cancelled = true;
+            area.blur();
+          } else if (event.key === "Enter" && (event.altKey || event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
             area.blur();
           }
         });
@@ -503,6 +506,7 @@
           if (worktree.description) {
             const text = el("p", "", worktree.description);
             text.title = worktree.description;
+            text.addEventListener("dblclick", edit);
             const row = el("div", "description-text");
             row.append(text);
             wrap.append(row);
@@ -511,7 +515,9 @@
           const text = el("div", "description-text");
           const edit_ = iconButton("edit", "Editar descripción", edit);
           edit_.classList.add("edit");
-          text.append(el("p", "", worktree.description), edit_);
+          const paragraph = el("p", "", worktree.description);
+          paragraph.addEventListener("dblclick", edit);
+          text.append(paragraph, edit_);
           wrap.append(text);
         } else {
           const add = el("button", "add");
