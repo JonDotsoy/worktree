@@ -104,11 +104,31 @@ test("el menú se abre con el teclado, se recorre con las flechas y devuelve el 
   await page.locator("#menu").waitFor();
   expect(await page.evaluate("document.activeElement?.id")).toBe("menu-open");
   await page.keyboard.press("ArrowDown");
+  expect(await page.evaluate("document.activeElement?.id")).toBe("menu-copy-abs");
+  await page.keyboard.press("End");
   expect(await page.evaluate("document.activeElement?.id")).toBe("menu-delete");
   await page.keyboard.press("ArrowDown");
   expect(await page.evaluate("document.activeElement?.id")).toBe("menu-open");
   await page.keyboard.press("Escape");
   expect(await page.locator("#menu").isVisible()).toBe(false);
   expect(await page.evaluate("document.activeElement?.textContent?.includes('feat/x')")).toBe(true);
+  await page.close();
+});
+
+test("el menú copia la ruta absoluta y la relativa a la carpeta abierta", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  await page.evaluate("navigator.clipboard.writeText = async (text) => { window.__copied = text; }");
+  const item = page.locator("#list li", { hasText: "feat/x" });
+  await item.waitFor();
+  await item.click({ button: "right", position: { x: 40, y: 20 } });
+  await page.locator("#menu-copy-abs").click();
+  await page.locator("#message", { hasText: "Copiado" }).waitFor();
+  expect(await page.evaluate("window.__copied")).toBe(join(dir, "app-x"));
+
+  await item.click({ button: "right", position: { x: 40, y: 20 } });
+  await page.locator("#menu-copy-rel").click();
+  await page.locator("#message", { hasText: "Copiado: ../app-x" }).waitFor();
+  expect(await page.evaluate("window.__copied")).toBe("../app-x");
   await page.close();
 });

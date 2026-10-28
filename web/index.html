@@ -375,6 +375,9 @@
   </div>
   <div id="menu" class="menu" role="menu" hidden>
     <button id="menu-open" type="button" role="menuitem"></button>
+    <hr role="separator">
+    <button id="menu-copy-abs" type="button" role="menuitem"></button>
+    <button id="menu-copy-rel" type="button" role="menuitem"></button>
     <hr id="menu-sep" role="separator">
     <button id="menu-delete" type="button" role="menuitem" class="danger"></button>
   </div>
@@ -483,6 +486,7 @@
     let editing = false;
 
     function showSnapshot(data) {
+      projectDir = data.cwd ?? projectDir;
       if (editing) {
         pendingRender = data;
         return;
@@ -702,6 +706,19 @@
     }
 
     let home = "";
+    /** Folder open in VS Code; relative paths are computed from it. */
+    let projectDir = "";
+
+    /** `/repos/app` → `/repos/app/.worktree/x` gives `.worktree/x`; elsewhere `../app-x`; the same folder gives `.`. */
+    function relativePath(from, to) {
+      const split = (path) => path.replace(/\\/g, "/").split("/").filter(Boolean);
+      const a = split(from);
+      const b = split(to);
+      let common = 0;
+      while (common < a.length && common < b.length && a[common] === b[common]) common++;
+      const parts = [...a.slice(common).map(() => ".."), ...b.slice(common)];
+      return parts.join("/") || ".";
+    }
 
     /** Display-only: shows `$HOME/` as `~/`; actions keep using the real path. */
     function tildify(path) {
@@ -734,6 +751,18 @@
     setIcon(menuOpen, "open");
     menuOpen.append("Abrir");
     menuOpen.append(el("span", "hint", "Enter"));
+    for (const [id, label] of [["menu-copy-abs", "Copiar ruta absoluta"], ["menu-copy-rel", "Copiar ruta relativa"]]) {
+      const button = document.getElementById(id);
+      setIcon(button, "copy");
+      button.append(label);
+      button.addEventListener("click", async () => {
+        hideMenu();
+        const text = id === "menu-copy-abs" ? menuPath : relativePath(projectDir, menuPath);
+        const ok = await copyText(text);
+        message.className = ok ? "message" : "message error";
+        message.textContent = ok ? `Copiado: ${text}` : "No se pudo copiar la ruta.";
+      });
+    }
     setIcon(menuDelete, "trash");
     menuDelete.append("Eliminar");
     /** Element that had focus before the menu opened, to give it back on close. */
