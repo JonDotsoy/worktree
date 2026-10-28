@@ -235,7 +235,7 @@
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
-          item.append(title, el("div", "path", worktree.path));
+          item.append(title, el("div", "path", tildify(worktree.path)));
           if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
           return item;
         }),
@@ -253,6 +253,15 @@
       return "Último commit hace un momento";
     }
 
+    let home = "";
+
+    /** Display-only: shows `$HOME/` as `~/`; actions keep using the real path. */
+    function tildify(path) {
+      if (home && path === home) return "~";
+      if (home && path.startsWith(home + "/")) return "~" + path.slice(home.length);
+      return path;
+    }
+
     async function openWorktree(path) {
       try {
         const response = await fetch("/api/worktrees/open", {
@@ -263,7 +272,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         message.className = "message";
-        message.textContent = `Abriendo ${data.path}`;
+        message.textContent = `Abriendo ${tildify(data.path)}`;
       } catch (error) {
         message.className = "message error";
         message.textContent = error.message;
@@ -306,8 +315,9 @@
         const response = await fetch("/api/worktrees");
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
+        home = data.home ?? home;
         render(data.worktrees);
-        message.textContent = `${data.worktrees.length} worktree(s) en ${data.cwd}`;
+        message.textContent = `${data.worktrees.length} worktree(s) en ${tildify(data.cwd)}`;
       } catch (error) {
         list.replaceChildren();
         message.className = "message error";
@@ -339,9 +349,10 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         toggleForm(false);
+        home = data.home ?? home;
         render(data.worktrees);
         message.className = "message";
-        message.textContent = `Worktree creado en ${data.path}`;
+        message.textContent = `Worktree creado en ${tildify(data.path)}`;
       } catch (error) {
         formMessage.textContent = error.message;
         formMessage.hidden = false;

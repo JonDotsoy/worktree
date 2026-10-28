@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
 import { createWorktree, listWorktrees } from "./worktrees";
@@ -92,10 +93,10 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             base: asString(input.base),
             path: asString(input.path),
           });
-          sendJson(201, { cwd, path, worktrees: await listWorktrees(cwd) });
+          sendJson(201, { cwd, home: homedir(), path, worktrees: await listWorktrees(cwd) });
           return;
         }
-        sendJson(200, { cwd, worktrees: await listWorktrees(cwd) });
+        sendJson(200, { cwd, home: homedir(), worktrees: await listWorktrees(cwd) });
       } catch (error) {
         sendJson(500, { cwd, error: error instanceof Error ? error.message : String(error) });
       }
