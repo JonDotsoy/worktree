@@ -24,6 +24,9 @@ los worktrees del repositorio abierto:
 - **Crear worktree:** formulario con rama, base y ruta opcionales.
 - **Actualización en vivo:** la lista se mantiene al día mediante SSE (Server-Sent Events);
   cuando cambian los datos de git la vista se refresca sola.
+- **Eliminar:** clic derecho sobre un worktree → **Eliminar** (`git worktree remove`). No aparece
+  en el principal ni en el abierto en VS Code. Si tiene cambios sin confirmar (en stage, sin
+  stage o sin seguimiento), muestra una advertencia y solo lo elimina tras confirmar. La rama se conserva.
 - **Configuración:** rama base para los worktrees nuevos, carpeta base donde se crean
   (por defecto `.worktree/`, relativa a la raíz del proyecto) y **estilo compacto**.
 - **Estilo compacto:** desde la configuración (⚙️) la lista pasa de tarjetas a filas densas:

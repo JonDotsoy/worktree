@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir } from "./worktrees";
+import { createWorktree, DirtyWorktreeError, removeWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -170,7 +170,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
         return;
       }
       try {
-        if ((req.method === "POST" || req.method === "PUT") && !isSameOriginJson(req)) {
+        if ((req.method === "POST" || req.method === "PUT" || req.method === "DELETE") && !isSameOriginJson(req)) {
           sendJson(403, { error: "Forbidden" });
           return;
         }
@@ -222,6 +222,25 @@ export async function startWebServer(root: string, options: WebServerOptions): P
           try {
             await setWorktreeStarred(cwd, path, starred);
           } catch (error) {
+            sendJson(400, { error: error instanceof Error ? error.message : String(error) });
+            return;
+          }
+          sendJson(200, { cwd, home: homedir(), compact: await getCompact(cwd), worktrees: await listWorktrees(cwd) });
+          return;
+        }
+        if (req.method === "DELETE") {
+          const { path, force } = (await readJson(req)) as { path?: unknown; force?: unknown };
+          if (typeof path !== "string") {
+            sendJson(400, { error: "Datos no válidos." });
+            return;
+          }
+          try {
+            await removeWorktree(cwd, path, force === true);
+          } catch (error) {
+            if (error instanceof DirtyWorktreeError) {
+              sendJson(409, { error: error.message, dirty: true, changes: error.changes });
+              return;
+            }
             sendJson(400, { error: error instanceof Error ? error.message : String(error) });
             return;
           }

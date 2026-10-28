@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Browser } from "playwright";
@@ -60,6 +60,36 @@ for (const compact of [false, true]) {
       await page.keyboard.press(key);
       await item.locator(".description-text p", { hasText: `Nota ${key}` }).waitFor();
     }
+    await page.close();
+  });
+}
+
+for (const compact of [false, true]) {
+  test(`el menú ofrece Eliminar salvo en el principal, y pide confirmación si hay cambios (${compact ? "compacto" : "tarjeta"})`, async () => {
+    const wt = join(dir, `app-del-${compact ? "c" : "t"}`);
+    git(join(dir, "app"), "worktree", "add", "-q", "-b", `feat/del-${compact ? "c" : "t"}`, wt);
+    writeFileSync(join(wt, "wip.txt"), "x");
+    const page = await browser.newPage();
+    if (compact) await page.addInitScript(() => localStorage.setItem("compact", "true"));
+    await page.goto(server.url);
+    const item = page.locator("#list li", { hasText: `feat/del-${compact ? "c" : "t"}` });
+    await item.waitFor();
+
+    await page.locator("#list li", { hasText: "principal" }).click({ button: "right" });
+    expect(await page.locator("#menu-delete").isVisible()).toBe(false);
+    await page.keyboard.press("Escape");
+
+    await item.click({ button: "right" });
+    await page.locator("#menu-delete").click();
+    await page.locator("#confirm").waitFor();
+    expect(await page.locator("#confirm-text").textContent()).toContain("1 cambio");
+    await page.locator("#confirm-cancel").click();
+    expect(await item.count()).toBe(1);
+
+    await item.click({ button: "right" });
+    await page.locator("#menu-delete").click();
+    await page.locator("#confirm-ok").click();
+    await item.waitFor({ state: "detached" });
     await page.close();
   });
 }

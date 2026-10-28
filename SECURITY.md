@@ -17,7 +17,7 @@ Security fixes are shipped in a new version of the extension, available from [Re
 ## Summary
 
 - The extension **does not send data to the internet**. There is no telemetry and no calls to external services.
-- It only runs `git` and, when opening a worktree, `code`. Always with separate arguments, **never through a shell**.
+- It only runs `git` and, when opening a worktree, `code`. Removing a worktree is always an explicit action from the menu, and it asks for confirmation when the worktree has uncommitted changes. Always with separate arguments, **never through a shell**.
 - It starts a local HTTP server that listens only on `127.0.0.1`.
 
 ## Files and folders it creates or modifies
@@ -34,7 +34,7 @@ Everything happens inside the open repository (the first workspace folder).
 | `.git/_worktree_configs/descriptions.json` | When saving a worktree description | JSON that maps the absolute path of each worktree to its description (up to 500 characters). It lives in the common git directory, so every worktree shares it. On each save, entries for worktrees git no longer lists are removed. |
 | `.git/worktrees/…`, refs and the `.git` file of each worktree | When creating a worktree | Written by `git worktree add`, not by the extension directly. |
 
-The extension **does not modify** your source files or your VS Code settings. It also deletes nothing: it does not remove worktrees, branches or folders.
+The extension **does not modify** your source files or your VS Code settings. The only thing it deletes is a worktree folder, when you choose **Eliminar** in a worktree's menu (see below). It never deletes branches, and the main worktree and the one open in VS Code cannot be removed.
 
 ## Files it reads
 
@@ -60,6 +60,9 @@ All of them use `execFile` or `spawn` with an argument array (no `shell`), so ne
 | `git check-ref-format --branch <branch>` | Validate the branch name when creating a worktree. |
 | `git worktree add -- <path> <branch>` | Create a worktree for an existing branch. |
 | `git worktree add -b <branch> -- <path> [<base>]` | Create a worktree with a new branch. |
+| `git status --porcelain` (run inside the worktree) | Count uncommitted changes before removing a worktree. |
+| `git worktree remove -- <path>` | Remove a worktree that has no changes. |
+| `git worktree remove --force -- <path>` | Remove a worktree that has changes, only after you confirm the warning. |
 | `code <path>` | Open a worktree in a new window. |
 
 About `code <path>`:
@@ -82,10 +85,11 @@ The sidebar view is an `iframe` that loads a page served by the extension itself
   - `GET /api/worktrees`: the same information as JSON.
   - `POST /api/worktrees`: creates a worktree.
   - `POST /api/worktrees/open`: opens a worktree (only those listed by git).
+  - `DELETE /api/worktrees`: removes a worktree (only those listed by git, never the main one nor the one open in VS Code). Without `force` it answers `409` when the worktree has changes, so the page can ask you first.
   - `PUT /api/worktrees/description`: saves the description of a worktree (only those listed by git; text up to 500 characters).
   - `GET` and `PUT /api/settings`: read and save the base branch, the worktrees folder and the compact style, and return the available branches.
   - Any other route serves static files from `web/`, checking that the path does not escape that folder.
-- **Write protection:** `POST` and `PUT` (including the description route) require `Host` equal to `127.0.0.1` or `localhost`, an `Origin` header equal to the server's own, and `Content-Type: application/json`. This prevents other websites from making changes (CSRF) or using DNS rebinding to write. The body is limited to 64 KiB.
+- **Write protection:** `POST`, `PUT` and `DELETE` (including the description route) require `Host` equal to `127.0.0.1` or `localhost`, an `Origin` header equal to the server's own, and `Content-Type: application/json`. This prevents other websites from making changes (CSRF) or using DNS rebinding to write. The body is limited to 64 KiB.
 - **CORS:** no CORS headers are sent.
 
 ### Known limitations
@@ -93,6 +97,10 @@ The sidebar view is an `iframe` that loads a page served by the extension itself
 - `GET` requests have no authentication and validate neither `Host` nor `Origin`. Any process or user on the same machine that knows the port can read the worktree list (paths, branches, commits and your home directory). A website cannot read them because of CORS, but a DNS rebinding attack could. Operations that change something are protected.
 - `POST` and `PUT` also carry no token. A malicious local process can send the correct `Host` and `Origin` and create worktrees or change the settings, but that already requires running code on your machine.
 - If you work with remote VS Code (SSH, containers, Codespaces), VS Code forwards the port with `asExternalUri`. In that case the server runs on the remote machine.
+
+## Removing worktrees
+
+**Eliminar** in the context menu (right click) of a worktree runs `git worktree remove` on it. It does not appear for the main worktree or for the one open in VS Code, and the server refuses those paths too. Before removing, the extension checks `git status --porcelain`: if there are staged, unstaged or untracked changes, the page shows a warning with the number of changes and only removes the worktree with `--force` after you confirm. The branch is kept.
 
 ## Clipboard
 

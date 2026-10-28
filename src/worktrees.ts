@@ -344,3 +344,36 @@ export async function createWorktree(cwd: string, input: CreateWorktreeInput): P
   await git(cwd, args);
   return path;
 }
+
+/** Number of entries `git status` reports in a worktree: staged, unstaged and untracked changes. */
+export async function countChanges(path: string): Promise<number> {
+  const out = await git(path, ["status", "--porcelain"]);
+  return out.split("\n").filter(Boolean).length;
+}
+
+/** Thrown by `removeWorktree` when the worktree has changes and `force` was not set. */
+export class DirtyWorktreeError extends Error {
+  constructor(readonly changes: number) {
+    super(`El worktree tiene ${changes} cambio(s) sin confirmar.`);
+  }
+}
+
+/**
+ * Runs `git worktree remove` on a worktree listed by git. The main worktree and the one
+ * `cwd` belongs to cannot be removed. With uncommitted changes it throws `DirtyWorktreeError`
+ * unless `force` is set. The branch is kept.
+ */
+export async function removeWorktree(cwd: string, path: string, force = false): Promise<void> {
+  const worktrees = await listWorktrees(cwd);
+  const target = worktrees.find((w) => w.path === path);
+  if (!target) throw new Error("No existe ese worktree.");
+  if (target.main) throw new Error("No se puede eliminar el worktree principal.");
+  if (target.current) throw new Error("No se puede eliminar el worktree abierto en VS Code.");
+
+  if (!force && !target.prunable) {
+    const changes = await countChanges(target.path);
+    if (changes > 0) throw new DirtyWorktreeError(changes);
+  }
+  const main = worktrees.find((w) => w.main);
+  await git(main?.path ?? cwd, ["worktree", "remove", ...(force ? ["--force"] : []), "--", target.path]);
+}
