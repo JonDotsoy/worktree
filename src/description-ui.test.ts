@@ -24,7 +24,7 @@ beforeAll(async () => {
   await setWorktreeDescription(app, join(dir, "app-x"), "Nota existente");
   server = await startWebServer(resolve(import.meta.dir, "..", "web"), { cwd: () => app, open: async (path: string) => void opened.push(path) });
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined });
-});
+}, 30_000);
 
 afterAll(async () => {
   await browser?.close();
