@@ -5,6 +5,7 @@
   "version": "0.0.6",
   "publisher": "jondotsoy",
   "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/JonDotsoy/worktree"
@@ -42,6 +43,7 @@
     "build": "bun build ./src/extension.ts --outdir ./dist --target node --format cjs --external vscode --sourcemap=linked",
     "watch": "bun run build --watch",
     "screenshots": "bun scripts/screenshots.ts",
+    "icon": "bun scripts/icon.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "package": "vsce package --no-dependencies --skip-license",
