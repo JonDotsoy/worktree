@@ -104,6 +104,7 @@
       color: var(--vscode-input-foreground, var(--fg));
       font: 13px var(--font-mono);
     }
+    #search { width: 100%; box-sizing: border-box; margin: 4px 0 8px; font-family: var(--font-sans); }
     select {
       padding: 6px 10px;
       border: 1px solid var(--vscode-input-border, var(--border));
@@ -221,7 +222,7 @@
     .menu {
       position: fixed;
       z-index: 10;
-      min-width: 140px;
+      min-width: 168px;
       padding: 4px;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -241,7 +242,44 @@
       text-align: left;
       font-weight: 500;
     }
+    .menu button { display: flex; align-items: center; gap: 8px; }
+    .menu button .hint { margin-left: auto; padding-left: 16px; color: var(--fg-muted); font-size: 11px; font-weight: 400; }
+    .menu button:hover .hint, .menu button:focus-visible .hint { color: inherit; opacity: 0.8; }
+    .menu button.on .ico { fill: currentColor; }
+    .menu hr { height: 1px; margin: 4px 6px; border: 0; background: var(--border); }
+    .menu hr[hidden] { display: none; }
     .menu button:hover, .menu button:focus-visible { background: var(--menu-hover); color: var(--menu-hover-fg); outline: none; }
+    .menu button[hidden] { display: none; }
+    .menu button .ico { width: 14px; height: 14px; flex: none; }
+    .menu button.danger { color: var(--error); }
+    .menu button.danger:hover, .menu button.danger:focus-visible { background: var(--error); color: #fff; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .overlay[hidden] { display: none; }
+    .dialog {
+      width: 100%;
+      max-width: 320px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--menu-bg);
+      color: var(--vscode-menu-foreground, var(--fg));
+      box-shadow: 0 8px 24px var(--vscode-widget-shadow, rgba(29, 33, 48, 0.2));
+    }
+    .dialog h2 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 13px; }
+    .dialog h2 .ico { width: 16px; height: 16px; flex: none; }
+    .dialog.warning h2 { color: var(--vscode-editorWarning-foreground, #bf8803); }
+    .dialog p { margin: 0 0 8px; font-size: 13px; word-break: break-word; }
+    .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .dialog button.danger { background: var(--error); border-color: var(--error); color: #fff; }
     label.check { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
     label.check input { margin: 0; accent-color: var(--accent); }
     label.check small { flex-basis: 100%; }
@@ -334,11 +372,30 @@
       <button type="button" id="cancel">Cancelar</button>
     </div>
   </form>
+  <input id="search" type="search" placeholder="Buscar por rama, ruta o descripción" aria-label="Buscar worktrees" autocomplete="off" spellcheck="false">
   <p id="message" class="message">Cargando…</p>
+  <p id="empty" class="message" hidden>Ningún worktree coincide con la búsqueda.</p>
   <ul id="list" class="list"></ul>
   </div>
   <div id="menu" class="menu" role="menu" hidden>
-    <button id="menu-open" type="button" role="menuitem">Abrir</button>
+    <button id="menu-open" type="button" role="menuitem"></button>
+    <button id="menu-star" type="button" role="menuitem"></button>
+    <hr role="separator">
+    <button id="menu-copy-abs" type="button" role="menuitem"></button>
+    <button id="menu-copy-rel" type="button" role="menuitem"></button>
+    <hr id="menu-sep" role="separator">
+    <button id="menu-delete" type="button" role="menuitem" class="danger"></button>
+  </div>
+  <div id="confirm" class="overlay" hidden>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <p id="confirm-path"><code></code></p>
+      <div class="actions">
+        <button type="button" id="confirm-cancel">Cancelar</button>
+        <button type="button" id="confirm-ok" class="danger">Eliminar</button>
+      </div>
+    </div>
   </div>
   <script>
     // The VS Code webview that frames this page forwards its theme (see renderFrame in
@@ -366,8 +423,47 @@
     let compactMode = false;
     let lastWorktrees = [];
 
-    function render(worktrees) {
-      lastWorktrees = worktrees;
+    /** Fuse.js (fuzzy search) is loaded on demand; until it arrives, or if it fails, a plain substring match is used. */
+    let Fuse;
+    import("/vendor/fuse.basic.min.mjs")
+      .then((module) => {
+        Fuse = module.default;
+        if (query) render(lastWorktrees);
+      })
+      .catch(() => {});
+
+    const search = document.getElementById("search");
+    const empty = document.getElementById("empty");
+    let query = "";
+
+    /** Keeps the worktrees matching the search box, best match first; without a query, the list as is. */
+    function filterWorktrees(worktrees) {
+      const text = query.trim();
+      if (!text) return worktrees;
+      if (Fuse) {
+        const fuse = new Fuse(worktrees, { keys: ["branch", "path", "description", "head"], threshold: 0.35, ignoreLocation: true });
+        return fuse.search(text).map((result) => result.item);
+      }
+      const needle = text.toLowerCase();
+      return worktrees.filter((w) => [w.branch, w.path, w.description, w.head].some((value) => value?.toLowerCase().includes(needle)));
+    }
+
+    search.addEventListener("input", () => {
+      query = search.value;
+      render(lastWorktrees);
+    });
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && search.value) {
+        event.preventDefault();
+        search.value = query = "";
+        render(lastWorktrees);
+      }
+    });
+
+    function render(all) {
+      lastWorktrees = all;
+      const worktrees = filterWorktrees(all);
+      empty.hidden = worktrees.length > 0 || all.length === 0;
       list.classList.toggle("compact", compactMode);
       list.replaceChildren(
         ...worktrees.map((worktree) => {
@@ -379,9 +475,16 @@
           item.addEventListener("keydown", (event) => {
             if (event.key === "Enter") openWorktree(worktree.path);
           });
+          // Keyboard route to the menu: the Menu key or Shift+F10, anchored to the item.
+          item.addEventListener("keydown", (event) => {
+            if (event.target !== item || !(event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) return;
+            event.preventDefault();
+            const box = item.getBoundingClientRect();
+            showMenu(box.left + 16, box.top + 24, worktree);
+          });
           item.addEventListener("contextmenu", (event) => {
             event.preventDefault();
-            showMenu(event.clientX, event.clientY, worktree.path);
+            showMenu(event.clientX, event.clientY, worktree);
           });
           const title = el("div", "branch");
           const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
@@ -427,6 +530,7 @@
     let editing = false;
 
     function showSnapshot(data) {
+      projectDir = data.cwd ?? projectDir;
       if (editing) {
         pendingRender = data;
         return;
@@ -540,21 +644,23 @@
     }
 
     /** Star toggle; the server answers with the reordered list, starred worktrees first. */
+    async function toggleStar(worktree) {
+      try {
+        const response = await fetch("/api/worktrees/star", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: worktree.path, starred: !worktree.starred }),
+        });
+        const data = await response.json();
+        if (response.ok) showSnapshot(data);
+      } catch {
+        // Keeping the current list is enough; the next refresh shows the real state.
+      }
+    }
+
     function starButton(worktree) {
       const label = worktree.starred ? "Quitar estrella" : "Marcar con estrella";
-      const button = iconButton("star", label, async () => {
-        try {
-          const response = await fetch("/api/worktrees/star", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: worktree.path, starred: !worktree.starred }),
-          });
-          const data = await response.json();
-          if (response.ok) showSnapshot(data);
-        } catch {
-          // Keeping the current list is enough; the next refresh shows the real state.
-        }
-      });
+      const button = iconButton("star", label, () => toggleStar(worktree));
       button.classList.add("star");
       button.classList.toggle("on", Boolean(worktree.starred));
       button.setAttribute("aria-pressed", String(Boolean(worktree.starred)));
@@ -597,6 +703,9 @@
       edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
       star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
       check: '<polyline points="20 6 9 17 4 12"/>',
+      open: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+      trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+      warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
     };
 
     /** Inline SVG icon; it draws with `currentColor`, so it follows the VS Code theme. */
@@ -643,6 +752,19 @@
     }
 
     let home = "";
+    /** Folder open in VS Code; relative paths are computed from it. */
+    let projectDir = "";
+
+    /** `/repos/app` → `/repos/app/.worktree/x` gives `.worktree/x`; elsewhere `../app-x`; the same folder gives `.`. */
+    function relativePath(from, to) {
+      const split = (path) => path.replace(/\\/g, "/").split("/").filter(Boolean);
+      const a = split(from);
+      const b = split(to);
+      let common = 0;
+      while (common < a.length && common < b.length && a[common] === b[common]) common++;
+      const parts = [...a.slice(common).map(() => ".."), ...b.slice(common)];
+      return parts.join("/") || ".";
+    }
 
     /** Display-only: shows `$HOME/` as `~/`; actions keep using the real path. */
     function tildify(path) {
@@ -669,10 +791,45 @@
     }
 
     const menu = document.getElementById("menu");
+    const menuDelete = document.getElementById("menu-delete");
+    const menuOpen = document.getElementById("menu-open");
+    const menuSep = document.getElementById("menu-sep");
+    setIcon(menuOpen, "open");
+    menuOpen.append("Abrir");
+    menuOpen.append(el("span", "hint", "Enter"));
+    const menuStar = document.getElementById("menu-star");
+    menuStar.addEventListener("click", () => {
+      hideMenu();
+      toggleStar(menuWorktree);
+    });
+    for (const [id, label] of [["menu-copy-abs", "Copiar ruta absoluta"], ["menu-copy-rel", "Copiar ruta relativa"]]) {
+      const button = document.getElementById(id);
+      setIcon(button, "copy");
+      button.append(label);
+      button.addEventListener("click", async () => {
+        hideMenu();
+        const text = id === "menu-copy-abs" ? menuPath : relativePath(projectDir, menuPath);
+        const ok = await copyText(text);
+        message.className = ok ? "message" : "message error";
+        message.textContent = ok ? `Copiado: ${text}` : "No se pudo copiar la ruta.";
+      });
+    }
+    setIcon(menuDelete, "trash");
+    menuDelete.append("Eliminar");
+    /** Element that had focus before the menu opened, to give it back on close. */
+    let menuReturnFocus;
     let menuPath;
+    let menuWorktree;
 
-    function showMenu(x, y, path) {
-      menuPath = path;
+    function showMenu(x, y, worktree) {
+      menuPath = worktree.path;
+      menuWorktree = worktree;
+      // The main worktree (and the one open in VS Code) cannot be removed, so no button.
+      menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);
+      setIcon(menuStar, "star");
+      menuStar.classList.toggle("on", Boolean(worktree.starred));
+      menuStar.append(worktree.starred ? "Quitar estrella" : "Agregar estrella");
+      menuReturnFocus = document.activeElement;
       menu.hidden = false;
       const { width, height } = menu.getBoundingClientRect();
       menu.style.left = `${Math.min(x, innerWidth - width - 4)}px`;
@@ -680,19 +837,113 @@
       menu.querySelector("button").focus();
     }
 
-    function hideMenu() {
+    function hideMenu({ restoreFocus = false } = {}) {
+      if (menu.hidden) return;
       menu.hidden = true;
+      if (restoreFocus) menuReturnFocus?.focus?.();
     }
+
+    function menuItems() {
+      return [...menu.querySelectorAll("button")].filter((button) => !button.hidden);
+    }
+
+    // Arrow keys, Home and End move through the items; Tab closes, like a native menu.
+    menu.addEventListener("keydown", (event) => {
+      const items = menuItems();
+      const index = items.indexOf(document.activeElement);
+      const move = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: items.length - 1 }[event.key];
+      if (move !== undefined) {
+        event.preventDefault();
+        items[(move + items.length) % items.length].focus();
+      } else if (event.key === "Tab" || event.key === "Escape") {
+        event.preventDefault();
+        hideMenu({ restoreFocus: true });
+      }
+      event.stopPropagation();
+    });
 
     document.getElementById("menu-open").addEventListener("click", () => {
       hideMenu();
       openWorktree(menuPath);
     });
+    menuDelete.addEventListener("click", () => {
+      hideMenu();
+      deleteWorktree(menuWorktree);
+    });
+
+    const confirmBox = document.getElementById("confirm");
+    let confirmResolve;
+
+    /** Modal confirmation (window.confirm is not available in the sandboxed webview); resolves true on accept. */
+    function askConfirm({ title, text, path, ok, warning }) {
+      const dialog = confirmBox.querySelector(".dialog");
+      dialog.classList.toggle("warning", Boolean(warning));
+      const heading = document.getElementById("confirm-title");
+      setIcon(heading, warning ? "warning" : "trash");
+      heading.append(title);
+      document.getElementById("confirm-text").textContent = text;
+      document.getElementById("confirm-path").firstElementChild.textContent = path;
+      document.getElementById("confirm-ok").textContent = ok;
+      confirmBox.hidden = false;
+      document.getElementById("confirm-cancel").focus();
+      return new Promise((resolve) => (confirmResolve = resolve));
+    }
+
+    function closeConfirm(result) {
+      confirmBox.hidden = true;
+      confirmResolve?.(result);
+      confirmResolve = undefined;
+    }
+
+    document.getElementById("confirm-ok").addEventListener("click", () => closeConfirm(true));
+    document.getElementById("confirm-cancel").addEventListener("click", () => closeConfirm(false));
+    confirmBox.addEventListener("click", (event) => {
+      if (event.target === confirmBox) closeConfirm(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !confirmBox.hidden) closeConfirm(false);
+    });
+
+    async function requestDelete(path, force) {
+      const response = await fetch("/api/worktrees", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, force }),
+      });
+      return { response, data: await response.json() };
+    }
+
+    /** Removes a worktree; when it has uncommitted changes, warns and only removes after confirmation. */
+    async function deleteWorktree(worktree) {
+      try {
+        let { response, data } = await requestDelete(worktree.path, false);
+        if (response.status === 409 && data.dirty) {
+          const accepted = await askConfirm({
+            title: "Cambios sin confirmar",
+            text: `Este worktree tiene ${data.changes} cambio(s) sin confirmar (en stage, sin stage o sin seguimiento). Si lo eliminas, se perderán.`,
+            path: tildify(worktree.path),
+            ok: "Eliminar de todos modos",
+            warning: true,
+          });
+          if (!accepted) return;
+          ({ response, data } = await requestDelete(worktree.path, true));
+        }
+        if (!response.ok) throw new Error(data.error);
+        home = data.home ?? home;
+        showSnapshot(data);
+        message.className = "message";
+        message.textContent = `Eliminado ${tildify(worktree.path)}`;
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
     document.addEventListener("click", (event) => {
       if (!menu.contains(event.target)) hideMenu();
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") hideMenu();
+      if (event.key === "Escape") hideMenu({ restoreFocus: true });
     });
     addEventListener("blur", hideMenu);
     addEventListener("scroll", hideMenu, true);

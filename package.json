@@ -49,6 +49,7 @@
     "watch": "bun run build --watch",
     "screenshots": "bun scripts/screenshots.ts",
     "icon": "bun scripts/icon.ts",
+    "vendor": "cp node_modules/fuse.js/dist/fuse.basic.min.mjs web/vendor/fuse.basic.min.mjs && cp node_modules/fuse.js/LICENSE web/vendor/fuse.LICENSE",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "package": "vsce package --no-dependencies",
@@ -58,6 +59,7 @@
     "@types/bun": "^1.4.4",
     "@types/vscode": "~1.90.0",
     "@vscode/vsce": "^4.0.0",
+    "fuse.js": "^7.5.0",
     "playwright": "^1.64.1",
     "typescript": "^5.6.0"
   }

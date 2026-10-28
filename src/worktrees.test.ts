@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, getBaseBranch, getCompact, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, DirtyWorktreeError, getBaseBranch, getCompact, getWorktreesDir, listBranches, listWorktrees, MAX_DESCRIPTION_LENGTH, parseWorktreeList, removeWorktree, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -268,5 +268,47 @@ describe("worktree stars", () => {
     await setWorktreeStarred(repo, a, false);
     expect((await listWorktrees(repo)).every((w) => !w.starred)).toBe(true);
     await expect(setWorktreeStarred(repo, join(root, "nope"), true)).rejects.toThrow();
+  });
+});
+
+describe("removeWorktree", () => {
+  function setup() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: repo });
+    return repo;
+  }
+
+  test("removes a clean worktree and keeps its branch", async () => {
+    const repo = setup();
+    const path = await createWorktree(repo, { branch: "feature/a" });
+    await removeWorktree(repo, path);
+    expect((await listWorktrees(repo)).map((w) => w.path)).toEqual([repo]);
+    expect(await listBranches(repo)).toContain("feature/a");
+  });
+
+  test("refuses to remove a worktree with changes unless forced", async () => {
+    const repo = setup();
+    const path = await createWorktree(repo, { branch: "feature/b" });
+    writeFileSync(join(path, "staged.txt"), "x");
+    execFileSync("git", ["add", "staged.txt"], { cwd: path });
+    writeFileSync(join(path, "loose.txt"), "y");
+
+    const error = await removeWorktree(repo, path).catch((e) => e);
+    expect(error).toBeInstanceOf(DirtyWorktreeError);
+    expect(error.changes).toBe(2);
+    expect((await listWorktrees(repo)).map((w) => w.path)).toContain(path);
+
+    await removeWorktree(repo, path, true);
+    expect((await listWorktrees(repo)).map((w) => w.path)).toEqual([repo]);
+  });
+
+  test("never removes the main worktree, the current one or unknown paths", async () => {
+    const repo = setup();
+    const path = await createWorktree(repo, { branch: "feature/c" });
+    await expect(removeWorktree(path, repo, true)).rejects.toThrow("principal");
+    await expect(removeWorktree(path, path, true)).rejects.toThrow("abierto");
+    await expect(removeWorktree(repo, join(repo, ".."), true)).rejects.toThrow("No existe");
   });
 });

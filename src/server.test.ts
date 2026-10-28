@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { startWebServer, type WebServer } from "./server";
@@ -59,4 +59,28 @@ test("PUT /api/settings saves the compact style, returns it and it reaches the w
 
 test("PUT /api/settings requires the same origin", async () => {
   expect((await putSettings({ "Content-Type": "application/json" }, { compact: true })).status).toBe(403);
+});
+
+const del = (headers: Record<string, string>, body: unknown) =>
+  fetch(`${server.url}api/worktrees`, { method: "DELETE", headers, body: JSON.stringify(body) });
+
+test("DELETE /api/worktrees asks for confirmation when there are changes, then removes", async () => {
+  const created = await fetch(`${server.url}api/worktrees`, { method: "POST", headers: trusted(), body: JSON.stringify({ branch: "to-delete" }) });
+  const { path } = (await created.json()) as { path: string };
+  writeFileSync(join(path, "wip.txt"), "x");
+
+  const dirty = await del(trusted(), { path });
+  expect(dirty.status).toBe(409);
+  expect(await dirty.json()).toMatchObject({ dirty: true, changes: 1 });
+
+  const removed = await del(trusted(), { path, force: true });
+  expect(removed.status).toBe(200);
+  expect(((await removed.json()) as { worktrees: { path: string }[] }).worktrees.map((w) => w.path)).toEqual([repo]);
+});
+
+test("DELETE /api/worktrees is protected and refuses the main worktree", async () => {
+  expect((await del({ "Content-Type": "application/json" }, { path: repo })).status).toBe(403);
+  expect((await del({ ...trusted(), Origin: "http://evil.example" }, { path: repo })).status).toBe(403);
+  expect((await del(trusted(), { path: repo, force: true })).status).toBe(400);
+  expect((await del(trusted(), { path: 1 })).status).toBe(400);
 });
