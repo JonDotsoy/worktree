@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, readFileSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWorktree, defaultWorktreePath, getBaseBranch, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, sortByRecentCommit } from "./worktrees";
@@ -138,7 +138,7 @@ describe("listWorktrees", () => {
 });
 
 describe("base branch setting", () => {
-  test("is stored in git config, validated, and used by createWorktree", async () => {
+  test("is stored under .git/_worktree_configs, validated, and used by createWorktree", async () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
     const repo = join(root, "app");
     const git = (...args: string[]) =>
@@ -156,6 +156,10 @@ describe("base branch setting", () => {
     expect(await getBaseBranch(repo)).toBe("develop");
     await createWorktree(repo, { branch: "feature" });
     expect(git("rev-parse", "feature")).toBe(git("rev-parse", "develop"));
+
+    expect(JSON.parse(readFileSync(join(repo, ".git", "_worktree_configs", "settings.json"), "utf8"))).toEqual({
+      baseBranch: "develop",
+    });
 
     await setBaseBranch(repo, "");
     expect(await getBaseBranch(repo)).toBe("");

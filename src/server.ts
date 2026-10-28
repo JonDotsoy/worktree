@@ -1,12 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { watch, type FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, getBaseBranch, listBranches, listWorktrees, setBaseBranch } from "./worktrees";
+import { createWorktree, getBaseBranch, gitCommonDir, listBranches, listWorktrees, setBaseBranch } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -22,16 +20,9 @@ export interface WebServer {
   close(): Promise<void>;
 }
 
-const execFileAsync = promisify(execFile);
-
 /** Debounce for bursts of file events: one git command touches many files under `.git`. */
 const WATCH_DEBOUNCE_MS = 150;
 const HEARTBEAT_MS = 25_000;
-
-async function gitCommonDir(cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd });
-  return stdout.trim();
-}
 
 /**
  * Streams the worktree list over SSE: once on connect and again whenever the git data changes.

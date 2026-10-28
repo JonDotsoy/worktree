@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -135,29 +136,49 @@ async function branchExists(cwd: string, branch: string): Promise<boolean> {
   }
 }
 
-const BASE_BRANCH_KEY = "worktreeView.baseBranch";
+/** The git dir shared by every worktree of the repo, i.e. the `.git` of the main worktree. */
+export async function gitCommonDir(cwd: string): Promise<string> {
+  return (await git(cwd, ["rev-parse", "--path-format=absolute", "--git-common-dir"])).trim();
+}
 
-/** Branch new worktrees are created from; empty when unset (git then uses HEAD). */
-export async function getBaseBranch(cwd: string): Promise<string> {
+/** Where the view keeps its settings: `<common git dir>/_worktree_configs/settings.json`. */
+async function settingsFile(cwd: string): Promise<string> {
+  return join(await gitCommonDir(cwd), "_worktree_configs", "settings.json");
+}
+
+interface Settings {
+  baseBranch?: string;
+}
+
+async function readSettings(cwd: string): Promise<Settings> {
   try {
-    return (await git(cwd, ["config", "--local", "--get", BASE_BRANCH_KEY])).trim();
+    return JSON.parse(await readFile(await settingsFile(cwd), "utf8")) as Settings;
   } catch {
-    return "";
+    return {};
   }
 }
 
-/** Stores the base branch in the repo's git config; an empty value clears it. */
+/** Branch new worktrees are created from; empty when unset (git then uses HEAD). */
+export async function getBaseBranch(cwd: string): Promise<string> {
+  const { baseBranch } = await readSettings(cwd);
+  return typeof baseBranch === "string" ? baseBranch : "";
+}
+
+/** Stores the base branch in the settings file; an empty value clears it. */
 export async function setBaseBranch(cwd: string, value: string): Promise<void> {
   const base = value.trim();
-  if (!base) {
-    await git(cwd, ["config", "--local", "--unset-all", BASE_BRANCH_KEY]).catch(() => {});
-    return;
+  if (base) {
+    if (base.startsWith("-")) throw new Error("La base no es válida.");
+    await git(cwd, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).catch(() => {
+      throw new Error(`La rama "${base}" no existe.`);
+    });
   }
-  if (base.startsWith("-")) throw new Error("La base no es válida.");
-  await git(cwd, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).catch(() => {
-    throw new Error(`La rama "${base}" no existe.`);
-  });
-  await git(cwd, ["config", "--local", BASE_BRANCH_KEY, base]);
+  const file = await settingsFile(cwd);
+  const settings = await readSettings(cwd);
+  if (base) settings.baseBranch = base;
+  else delete settings.baseBranch;
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
 /** Local and remote branch names, for suggestions. */
