@@ -104,7 +104,7 @@ export async function listWorktrees(cwd: string): Promise<Worktree[]> {
 export interface CreateWorktreeInput {
   /** Branch to check out; created from `base` when it does not exist yet. */
   branch: string;
-  /** Commit-ish for a new branch. Defaults to the current HEAD. */
+  /** Commit-ish for a new branch. Defaults to the configured base branch, then the current HEAD. */
   base?: string;
   /** Target directory. Defaults to a sibling of the main worktree, see `defaultWorktreePath`. */
   path?: string;
@@ -135,10 +135,41 @@ async function branchExists(cwd: string, branch: string): Promise<boolean> {
   }
 }
 
+const BASE_BRANCH_KEY = "worktreeView.baseBranch";
+
+/** Branch new worktrees are created from; empty when unset (git then uses HEAD). */
+export async function getBaseBranch(cwd: string): Promise<string> {
+  try {
+    return (await git(cwd, ["config", "--local", "--get", BASE_BRANCH_KEY])).trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Stores the base branch in the repo's git config; an empty value clears it. */
+export async function setBaseBranch(cwd: string, value: string): Promise<void> {
+  const base = value.trim();
+  if (!base) {
+    await git(cwd, ["config", "--local", "--unset-all", BASE_BRANCH_KEY]).catch(() => {});
+    return;
+  }
+  if (base.startsWith("-")) throw new Error("La base no es válida.");
+  await git(cwd, ["rev-parse", "--verify", "--quiet", `${base}^{commit}`]).catch(() => {
+    throw new Error(`La rama "${base}" no existe.`);
+  });
+  await git(cwd, ["config", "--local", BASE_BRANCH_KEY, base]);
+}
+
+/** Local and remote branch names, for suggestions. */
+export async function listBranches(cwd: string): Promise<string[]> {
+  const out = await git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"]);
+  return out.split("\n").filter((name) => name && !name.endsWith("/HEAD"));
+}
+
 /** Runs `git worktree add` and returns the path of the new worktree. */
 export async function createWorktree(cwd: string, input: CreateWorktreeInput): Promise<string> {
   const branch = input.branch.trim();
-  const base = input.base?.trim();
+  const base = input.base?.trim() || (await getBaseBranch(cwd));
   if (!branch || branch.startsWith("-")) throw new Error("El nombre de la rama no es válido.");
   if (base?.startsWith("-")) throw new Error("La base no es válida.");
   await git(cwd, ["check-ref-format", "--branch", branch]);

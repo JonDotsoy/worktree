@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList, sortByRecentCommit } from "./worktrees";
+import { createWorktree, defaultWorktreePath, getBaseBranch, listBranches, listWorktrees, parseWorktreeList, setBaseBranch, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -134,5 +134,30 @@ describe("listWorktrees", () => {
       ["new", false],
       ["main", false],
     ]);
+  });
+});
+
+describe("base branch setting", () => {
+  test("is stored in git config, validated, and used by createWorktree", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo }).toString().trim();
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    git("commit", "-q", "--allow-empty", "-m", "one");
+    git("branch", "develop");
+    git("commit", "-q", "--allow-empty", "-m", "two");
+
+    expect(await getBaseBranch(repo)).toBe("");
+    expect(await listBranches(repo)).toEqual(["develop", "main"]);
+    await expect(setBaseBranch(repo, "nope")).rejects.toThrow();
+
+    await setBaseBranch(repo, "develop");
+    expect(await getBaseBranch(repo)).toBe("develop");
+    await createWorktree(repo, { branch: "feature" });
+    expect(git("rev-parse", "feature")).toBe(git("rev-parse", "develop"));
+
+    await setBaseBranch(repo, "");
+    expect(await getBaseBranch(repo)).toBe("");
   });
 });

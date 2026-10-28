@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, listWorktrees } from "./worktrees";
+import { createWorktree, getBaseBranch, listBranches, listWorktrees, setBaseBranch } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -129,6 +129,35 @@ export async function startWebServer(root: string, options: WebServerOptions): P
         return;
       }
       await streamWorktrees(req, res, options.cwd());
+      return;
+    }
+
+    if (pathname === "/api/settings") {
+      const cwd = options.cwd();
+      const sendJson = (status: number, body: unknown) => {
+        res.writeHead(status, { "Content-Type": contentTypes[".json"], "Cache-Control": "no-store" });
+        res.end(JSON.stringify(body));
+      };
+      if (!cwd) {
+        sendJson(404, { error: "No hay una carpeta abierta en VS Code." });
+        return;
+      }
+      try {
+        if (req.method === "PUT") {
+          if (!isSameOriginJson(req)) {
+            sendJson(403, { error: "Forbidden" });
+            return;
+          }
+          const { baseBranch } = (await readJson(req)) as { baseBranch?: unknown };
+          await setBaseBranch(cwd, typeof baseBranch === "string" ? baseBranch : "");
+        } else if (req.method !== "GET") {
+          sendJson(405, { error: "Method not allowed" });
+          return;
+        }
+        sendJson(200, { baseBranch: await getBaseBranch(cwd), branches: await listBranches(cwd) });
+      } catch (error) {
+        sendJson(400, { error: error instanceof Error ? error.message : String(error) });
+      }
       return;
     }
 

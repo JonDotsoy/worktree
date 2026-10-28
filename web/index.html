@@ -78,9 +78,11 @@
     button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
     button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     button:disabled { opacity: 0.6; cursor: progress; }
+    button.icon { padding: 4px 8px; }
     .actions { display: flex; gap: 8px; }
     form.card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-    form[hidden] { display: none; }
+    form[hidden], #main-view[hidden] { display: none; }
+    form h2 { margin: 0; font-size: 16px; color: var(--fg-strong); }
     label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 500; color: var(--fg-strong); }
     label small { font-weight: 400; color: var(--fg-muted); }
     input {
@@ -91,7 +93,15 @@
       color: var(--vscode-input-foreground, var(--fg));
       font: 13px var(--font-mono);
     }
-    input:focus { outline: 1px solid var(--focus); outline-offset: -1px; }
+    select {
+      padding: 6px 10px;
+      border: 1px solid var(--vscode-input-border, var(--border));
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--vscode-input-foreground, var(--fg));
+      font: 13px var(--font-mono);
+    }
+    input:focus, select:focus { outline: 1px solid var(--focus); outline-offset: -1px; }
     .list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .card {
       padding: 12px 16px;
@@ -184,9 +194,23 @@
   <div class="header">
     <h1>Worktree</h1>
     <div class="actions">
+      <button id="settings-toggle" type="button" class="icon" title="Configuración" aria-label="Configuración">⚙️</button>
       <button id="create" type="button" class="primary">Crear worktree</button>
     </div>
   </div>
+  <form id="settings" class="card" hidden>
+    <h2>Configuración</h2>
+    <label>Rama base para worktrees nuevos
+      <select name="baseBranch"></select>
+      <small>Opcional. Se usa al crear una rama nueva si no indicas otra base. Se guarda en la configuración git del repo.</small>
+    </label>
+    <p id="settings-message" class="message" hidden></p>
+    <div class="actions">
+      <button type="submit" class="primary">Guardar</button>
+      <button type="button" id="settings-close">Volver</button>
+    </div>
+  </form>
+  <div id="main-view">
   <form id="create-form" class="card" hidden>
     <label>Rama
       <input name="branch" required placeholder="feature/mi-cambio" autocomplete="off">
@@ -208,6 +232,7 @@
   </form>
   <p id="message" class="message">Cargando…</p>
   <ul id="list" class="list"></ul>
+  </div>
   <div id="menu" class="menu" role="menu" hidden>
     <button id="menu-open" type="button" role="menuitem">Abrir</button>
   </div>
@@ -431,6 +456,65 @@
 
     document.getElementById("create").addEventListener("click", () => toggleForm(form.hidden));
     document.getElementById("cancel").addEventListener("click", () => toggleForm(false));
+
+    const settings = document.getElementById("settings");
+    const settingsMessage = document.getElementById("settings-message");
+    const mainView = document.getElementById("main-view");
+
+    function applySettings(data) {
+      const names = data.branches.includes(data.baseBranch) || !data.baseBranch ? data.branches : [data.baseBranch, ...data.branches];
+      const option = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
+      settings.elements.baseBranch.replaceChildren(option("", "HEAD (por defecto)"), ...names.map((name) => option(name, name)));
+      settings.elements.baseBranch.value = data.baseBranch;
+      form.elements.base.placeholder = data.baseBranch || "main";
+    }
+
+    function showSettingsMessage(text, error) {
+      settingsMessage.textContent = text;
+      settingsMessage.className = error ? "message error" : "message";
+      settingsMessage.hidden = !text;
+    }
+
+    async function toggleSettings(open) {
+      settings.hidden = !open;
+      mainView.hidden = open;
+      showSettingsMessage("", false);
+      if (!open) return;
+      try {
+        const response = await fetch("/api/settings");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        applySettings(data);
+        settings.elements.baseBranch.focus();
+      } catch (error) {
+        showSettingsMessage(error.message, true);
+      }
+    }
+
+    settings.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submit = settings.querySelector("button[type=submit]");
+      submit.disabled = true;
+      try {
+        const response = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseBranch: settings.elements.baseBranch.value }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        applySettings(data);
+        showSettingsMessage("Guardado.", false);
+      } catch (error) {
+        showSettingsMessage(error.message, true);
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    document.getElementById("settings-toggle").addEventListener("click", () => toggleSettings(settings.hidden));
+    document.getElementById("settings-close").addEventListener("click", () => toggleSettings(false));
+    fetch("/api/settings").then((r) => (r.ok ? r.json() : undefined)).then((data) => data && applySettings(data), () => {});
     listen();
   </script>
 </body>
