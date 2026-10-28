@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { spawn } from "node:child_process";
 import { startWebServer, type WebServer } from "./server";
 
 class WorktreeViewProvider implements vscode.WebviewViewProvider {
@@ -11,6 +12,7 @@ class WorktreeViewProvider implements vscode.WebviewViewProvider {
 
     this.server ??= startWebServer(vscode.Uri.joinPath(this.extensionUri, "web").fsPath, {
       cwd: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      open: openInVSCode,
     });
     const { url } = await this.server;
     const src = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString(true);
@@ -20,6 +22,27 @@ class WorktreeViewProvider implements vscode.WebviewViewProvider {
 
   async dispose(): Promise<void> {
     await (await this.server)?.close();
+  }
+}
+
+/** Runs `code <path>`, falling back to VS Code's own command when the CLI is not on the PATH. */
+async function openInVSCode(path: string): Promise<void> {
+  // Variables from the extension host would make the CLI talk to this window instead of
+  // behaving like a terminal invocation.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("VSCODE_") && key !== "ELECTRON_RUN_AS_NODE"),
+  );
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn("code", [path], { detached: true, stdio: "ignore", env });
+      child.once("spawn", () => {
+        child.unref();
+        resolve();
+      });
+      child.once("error", reject);
+    });
+  } catch {
+    await vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(path), { forceNewWindow: true });
   }
 }
 

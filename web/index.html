@@ -13,6 +13,7 @@
       --color-pewter: #6b6d72;
       --color-graphite: #474950;
       --color-cobalt-signal: #1a67fd;
+      --color-midnight-ink: #1d2130;
       --color-mist-gray: #ebeef7;
       --color-slate-edge: #d5d9e8;
       --font-sans: "IBM Plex Sans", Inter, system-ui, sans-serif;
@@ -118,6 +119,32 @@
       font-weight: 500;
     }
     .badge.main { background: var(--color-lime-spark); color: var(--color-obsidian); }
+    .worktree { cursor: default; user-select: none; }
+    .worktree:hover { border-color: var(--color-midnight-ink); }
+    .worktree:focus-visible { outline: 2px solid var(--color-cobalt-signal); outline-offset: 1px; }
+    .date { margin-top: 4px; font-size: 12px; color: var(--color-pewter); }
+    .menu {
+      position: fixed;
+      z-index: 10;
+      min-width: 140px;
+      padding: 4px;
+      border: 1px solid var(--color-slate-edge);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(29, 33, 48, 0.12);
+    }
+    .menu[hidden] { display: none; }
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      text-align: left;
+      font-weight: 500;
+    }
+    .menu button:hover, .menu button:focus-visible { background: var(--color-lime-spark); outline: none; }
     .message { color: var(--color-pewter); font-size: 14px; }
     .message.error { color: #b42318; }
     code { font-family: var(--font-mono); font-size: 12px; }
@@ -153,6 +180,9 @@
   </form>
   <p id="message" class="message">Cargando…</p>
   <ul id="list" class="list"></ul>
+  <div id="menu" class="menu" role="menu" hidden>
+    <button id="menu-open" type="button" role="menuitem">Abrir</button>
+  </div>
   <script>
     const list = document.getElementById("list");
     const message = document.getElementById("message");
@@ -166,20 +196,88 @@
 
     function render(worktrees) {
       list.replaceChildren(
-        ...worktrees.map((worktree, index) => {
-          const item = el("li", "card");
+        ...worktrees.map((worktree) => {
+          const item = el("li", "card worktree");
+          item.tabIndex = 0;
+          item.title = "Doble clic para abrir";
+          item.addEventListener("dblclick", () => openWorktree(worktree.path));
+          item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") openWorktree(worktree.path);
+          });
+          item.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            showMenu(event.clientX, event.clientY, worktree.path);
+          });
           const title = el("div", "branch");
           const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
           title.append(el("span", "", name));
-          if (index === 0) title.append(el("span", "badge main", "principal"));
+          if (worktree.main) title.append(el("span", "badge main", "principal"));
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
           item.append(title, el("div", "path", worktree.path));
+          if (worktree.committedAt) item.append(el("div", "date", relativeTime(worktree.committedAt)));
           return item;
         }),
       );
     }
+
+    const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+    const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+
+    function relativeTime(seconds) {
+      const diff = seconds - Date.now() / 1000;
+      for (const [unit, size] of units) {
+        if (Math.abs(diff) >= size) return `Último commit ${rtf.format(Math.round(diff / size), unit)}`;
+      }
+      return "Último commit hace un momento";
+    }
+
+    async function openWorktree(path) {
+      try {
+        const response = await fetch("/api/worktrees/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        message.className = "message";
+        message.textContent = `Abriendo ${data.path}`;
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
+    const menu = document.getElementById("menu");
+    let menuPath;
+
+    function showMenu(x, y, path) {
+      menuPath = path;
+      menu.hidden = false;
+      const { width, height } = menu.getBoundingClientRect();
+      menu.style.left = `${Math.min(x, innerWidth - width - 4)}px`;
+      menu.style.top = `${Math.min(y, innerHeight - height - 4)}px`;
+      menu.querySelector("button").focus();
+    }
+
+    function hideMenu() {
+      menu.hidden = true;
+    }
+
+    document.getElementById("menu-open").addEventListener("click", () => {
+      hideMenu();
+      openWorktree(menuPath);
+    });
+    document.addEventListener("click", (event) => {
+      if (!menu.contains(event.target)) hideMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideMenu();
+    });
+    addEventListener("blur", hideMenu);
+    addEventListener("scroll", hideMenu, true);
 
     async function load() {
       message.className = "message";

@@ -6,7 +6,11 @@ const execFileAsync = promisify(execFile);
 
 export interface Worktree {
   path: string;
+  /** The main worktree, the first one listed by git. */
+  main?: boolean;
   head?: string;
+  /** Committer date of HEAD, in seconds since the epoch. */
+  committedAt?: number;
   branch?: string;
   bare: boolean;
   detached: boolean;
@@ -53,9 +57,37 @@ export function parseWorktreeList(output: string): Worktree[] {
     });
 }
 
+/** Most recent commit first; worktrees without a known commit date go last. */
+export function sortByRecentCommit(worktrees: Worktree[]): Worktree[] {
+  return [...worktrees].sort((a, b) => (b.committedAt ?? -Infinity) - (a.committedAt ?? -Infinity));
+}
+
+async function commitDates(cwd: string, heads: string[]): Promise<Map<string, number>> {
+  const dates = new Map<string, number>();
+  if (heads.length === 0) return dates;
+  try {
+    const { stdout } = await execFileAsync("git", ["show", "-s", "--format=%H %ct", ...heads, "--"], { cwd });
+    for (const line of stdout.trim().split("\n")) {
+      const [sha, timestamp] = line.split(" ");
+      if (sha && timestamp) dates.set(sha, Number(timestamp));
+    }
+  } catch {
+    // A missing object only costs the ordering; the list is still useful.
+  }
+  return dates;
+}
+
+/** Lists the worktrees, most recent commit first. */
 export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   const { stdout } = await execFileAsync("git", ["worktree", "list", "--porcelain"], { cwd });
-  return parseWorktreeList(stdout);
+  const worktrees = parseWorktreeList(stdout);
+  if (worktrees[0]) worktrees[0].main = true;
+
+  const dates = await commitDates(cwd, [...new Set(worktrees.flatMap((w) => (w.head ? [w.head] : [])))]);
+  for (const worktree of worktrees) {
+    if (worktree.head) worktree.committedAt = dates.get(worktree.head);
+  }
+  return sortByRecentCommit(worktrees);
 }
 
 export interface CreateWorktreeInput {
@@ -100,7 +132,7 @@ export async function createWorktree(cwd: string, input: CreateWorktreeInput): P
   if (base?.startsWith("-")) throw new Error("La base no es válida.");
   await git(cwd, ["check-ref-format", "--branch", branch]);
 
-  const [main] = await listWorktrees(cwd);
+  const main = (await listWorktrees(cwd)).find((w) => w.main);
   const path = input.path?.trim()
     ? resolve(cwd, input.path.trim())
     : defaultWorktreePath(main?.path ?? cwd, branch);

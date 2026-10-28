@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList } from "./worktrees";
+import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList, sortByRecentCommit } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -87,5 +87,43 @@ describe("createWorktree", () => {
     const repo = initRepo();
     await expect(createWorktree(repo, { branch: "--force" })).rejects.toThrow();
     await expect(createWorktree(repo, { branch: "bad..name" })).rejects.toThrow();
+  });
+});
+
+describe("sortByRecentCommit", () => {
+  test("puts the most recent commit first and unknown dates last", () => {
+    const worktree = (path: string, committedAt?: number) => ({ path, committedAt, bare: false, detached: false });
+    expect(sortByRecentCommit([worktree("a", 1), worktree("b"), worktree("c", 3), worktree("d", 2)]).map((w) => w.path)).toEqual([
+      "c",
+      "d",
+      "a",
+      "b",
+    ]);
+  });
+});
+
+describe("listWorktrees", () => {
+  test("orders worktrees by their latest commit and keeps the main flag", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    const commit = (cwd: string, date: string) =>
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", date], {
+        cwd,
+        env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date },
+      });
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    commit(repo, "2024-01-01T00:00:00Z");
+    execFileSync("git", ["worktree", "add", "-q", "-b", "old", "../old"], { cwd: repo });
+    execFileSync("git", ["worktree", "add", "-q", "-b", "new", "../new"], { cwd: repo });
+    commit(join(root, "new"), "2024-03-01T00:00:00Z");
+    commit(repo, "2024-02-01T00:00:00Z");
+
+    const worktrees = await listWorktrees(repo);
+    expect(worktrees.map((w) => [w.branch, w.main ?? false])).toEqual([
+      ["new", false],
+      ["main", true],
+      ["old", false],
+    ]);
+    expect(worktrees[0]?.committedAt).toBe(Date.parse("2024-03-01T00:00:00Z") / 1000);
   });
 });
