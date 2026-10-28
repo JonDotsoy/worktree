@@ -26,27 +26,22 @@ los worktrees del repositorio abierto:
 
 ## Capturas
 
-### Lista de worktrees y `current`
+<table width="100%">
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/vscode.png" alt="Extensión en VS Code" width="100%"><br><sub>Extensión en VS Code</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/current.png" alt="Worktree current" width="100%"><br><sub>Worktree current</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/configuracion.png" alt="Configuración" width="100%"><br><sub>Configuración</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/menu-abrir.png" alt="Menú Abrir" width="100%"><br><sub>Menú Abrir</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/copiar-ruta.png" alt="Copiar ruta" width="100%"><br><sub>Copiar ruta</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/rutas-tilde.png" alt="Rutas con ~" width="100%"><br><sub>Rutas con ~</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-formulario.png" alt="Crear worktree" width="100%"><br><sub>Crear worktree</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-resultado.png" alt="Worktree creado" width="100%"><br><sub>Worktree creado</sub></td>
+  </tr>
+</table>
 
-El worktree actual aparece resaltado y con la etiqueta `current`.
-
-![Lista de worktrees con el current destacado](docs/screenshots/current.png)
-
-### Abrir un worktree
-
-![Menú Abrir](docs/screenshots/menu-abrir.png)
-
-### Copiar ruta
-
-![Copiar la ruta de un worktree](docs/screenshots/copiar-ruta.png)
-
-### Configuración
-
-Pulsa el engranaje para elegir la rama base de los worktrees nuevos y la carpeta base
-(por defecto `.worktree/`). Los cambios se guardan automáticamente en
-`.git/_worktree_configs`.
-
-![Configuración de la extensión](docs/screenshots/configuracion.png)
+La configuración se guarda automáticamente en `.git/_worktree_configs`.
 
 ## Instalación
 
