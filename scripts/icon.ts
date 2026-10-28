@@ -1,8 +1,8 @@
 /**
  * Regenerates the extension icon (media/icon.png) from media/worktree.svg.
  *
- * vsce only accepts a PNG for the `icon` field, so the activity bar glyph is drawn in white on a
- * solid rounded square (readable on light and dark themes) and rendered with Playwright (Chromium).
+ * vsce only accepts a PNG for the `icon` field, so the activity bar glyph is drawn in blue (readable
+ * on light and dark themes) on a transparent background and rendered with Playwright (Chromium).
  *
  *   bun run icon
  *
@@ -15,7 +15,7 @@ import { chromium } from "playwright";
 const size = 512;
 const root = resolve(import.meta.dir, "..");
 const svg = readFileSync(resolve(root, "media/worktree.svg"), "utf8")
-  .replace(/currentColor/g, "#ffffff")
+  .replace(/currentColor/g, "#2f81f7")
   .replace(/width="24" height="24"/, 'width="100%" height="100%"');
 
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined });
@@ -23,7 +23,7 @@ try {
   const page = await browser.newPage({ viewport: { width: size, height: size } });
   await page.setContent(
     `<style>html,body{margin:0;background:transparent}
-    div{box-sizing:border-box;width:${size}px;height:${size}px;padding:112px;border-radius:96px;background:#1f2937}
+    div{box-sizing:border-box;width:${size}px;height:${size}px;padding:56px}
     svg{display:block}</style><div>${svg}</div>`,
   );
   await page.screenshot({ path: resolve(root, "media/icon.png"), omitBackground: true });
