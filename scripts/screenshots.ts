@@ -9,7 +9,7 @@
  * Set PLAYWRIGHT_CHROMIUM_PATH to use a Chromium binary other than Playwright's own.
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "playwright";
@@ -144,6 +144,7 @@ try {
       },
     },
   };
+  const worktreeIcon = readFileSync(resolve(root, "media/worktree.svg"), "utf8");
   const vscode = await browser.newContext({ viewport: { width: 760, height: 520 }, deviceScaleFactor: 2 });
   for (const theme of Object.values(themes)) {
     const f = theme.frame;
@@ -151,13 +152,13 @@ try {
     await page.setContent(`<!doctype html><style>
     *{box-sizing:border-box}body{margin:0;display:flex;height:100vh;background:${f.page};font:13px system-ui,sans-serif;color:${f.fg}}
     .bar{width:48px;background:${f.bar};display:flex;flex-direction:column;align-items:center;gap:22px;padding-top:14px}
-    .bar i{width:22px;height:22px;border:2px solid ${f.barIcon};border-radius:5px}.bar i.on{border-color:${f.barOn};background:#fff3}
+    .bar i{width:22px;height:22px;border:2px solid ${f.barIcon};border-radius:5px}.bar svg{width:24px;height:24px;color:${f.barOn}}
     .side{width:320px;background:${f.side};display:flex;flex-direction:column}
     .side h1{margin:0;font-size:11px;letter-spacing:.08em;font-weight:400;padding:10px 20px}
     .side h2{margin:0;font-size:11px;font-weight:700;padding:4px 8px;letter-spacing:.04em}
     iframe{flex:1;border:0;background:${f.side}}
     .ed{flex:1;display:flex;align-items:center;justify-content:center;color:${f.muted};font-size:15px}
-  </style><div class="bar"><i></i><i></i><i class="on"></i></div>
+  </style><div class="bar"><i></i><i></i>${worktreeIcon}</div>
   <div class="side"><h1>WORKTREE</h1><h2>⌄ WORKTREES</h2><iframe src="${server.url}"></iframe></div>
   <div class="ed">Worktree</div>`);
     const frame = page.frameLocator("iframe");
