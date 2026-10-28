@@ -9,6 +9,7 @@ cómo está organizado el código, qué convenciones seguimos y cómo se publica
 - [Cómo funciona la extensión](#cómo-funciona-la-extensión)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Commits y pull requests](#commits-y-pull-requests)
+- [Integración continua](#integración-continua)
 - [Release](#release)
 
 ## Requisitos
@@ -52,7 +53,7 @@ Playwright. Igual que `bun run icon`, acepta la variable `PLAYWRIGHT_CHROMIUM_PA
 usar otro Chromium.
 
 Antes de abrir un PR, asegúrate de que pasen `bun run typecheck` y `bun test`: son los
-mismos chequeos que corre el workflow de release.
+mismos chequeos que corre el [CI](#integración-continua) y el workflow de release.
 
 ## Cómo funciona la extensión
 
@@ -102,6 +103,15 @@ DESIGN.md        Referencia de estilo visual de la UI.
 - Si cambias la UI, regenera las capturas con `bun run screenshots` e inclúyelas en el PR.
 - Para reportar una vulnerabilidad, sigue [SECURITY.md](SECURITY.md) en lugar de abrir un
   issue público.
+
+## Integración continua
+
+El workflow **CI** (`.github/workflows/ci.yml`) corre en cada pull request y en cada push
+a `develop`. Instala Bun, ejecuta `bun install --frozen-lockfile`, `bun run typecheck` y
+`bun test` (los tests de UI usan Chromium de Playwright, que el workflow instala y cachea).
+Tiene permisos de solo lectura y cancela los runs obsoletos de la misma rama o PR. Un PR
+debe tener el CI en verde para fusionarse; puedes reproducirlo en local con los mismos
+comandos.
 
 ## Release
 

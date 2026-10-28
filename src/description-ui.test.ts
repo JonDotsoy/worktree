@@ -42,7 +42,7 @@ for (const compact of [false, true]) {
     opened.length = 0;
     await item.locator(".description-text p").dblclick();
     await item.locator("textarea").waitFor();
-    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("TEXTAREA");
+    expect(await page.evaluate<string | undefined>("document.activeElement?.tagName")).toBe("TEXTAREA");
     await page.waitForTimeout(200);
     expect(opened).toEqual([]);
     await page.keyboard.press("Escape");
