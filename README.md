@@ -50,7 +50,7 @@ La configuración se guarda automáticamente en `.git/_worktree_configs`.
 2. Instálalo en VS Code, con *Extensions → ⋯ → Install from VSIX…* o desde la terminal:
 
    ```sh
-   code --install-extension worktree-<versión>.vsix
+   code --install-extension jon-soy.worktree-<versión>.vsix
    ```
 
 3. Abre un repositorio git y pulsa el icono de **Worktree** en la barra de actividades.
@@ -105,7 +105,7 @@ workflow:
 
 1. Revisa tipos y corre los tests.
 2. Sube la versión en `package.json`.
-3. Empaqueta la extensión con `vsce` (`worktree-<versión>.vsix`).
+3. Empaqueta la extensión con `vsce` (`jon-soy.worktree-<versión>.vsix`).
 4. Hace commit de la versión (`chore(release): v<versión>`), crea el tag `v<versión>` y los sube a la rama elegida.
 5. Crea el release en GitHub con el `.vsix` adjunto.
 

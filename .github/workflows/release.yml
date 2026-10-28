@@ -42,7 +42,7 @@ jobs:
         run: |
           version="$(npm version "$BUMP" --no-git-tag-version)"
           echo "tag=$version" >> "$GITHUB_OUTPUT"
-          echo "vsix=worktree-${version#v}.vsix" >> "$GITHUB_OUTPUT"
+          echo "vsix=jon-soy.worktree-${version#v}.vsix" >> "$GITHUB_OUTPUT"
 
       - name: Package extension
         run: bun run package --out "${{ steps.version.outputs.vsix }}"
