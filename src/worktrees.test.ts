@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { parseWorktreeList } from "./worktrees";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createWorktree, defaultWorktreePath, listWorktrees, parseWorktreeList } from "./worktrees";
 
 describe("parseWorktreeList", () => {
   test("parses branches, detached, bare, locked and prunable worktrees", () => {
@@ -40,5 +44,48 @@ describe("parseWorktreeList", () => {
 
   test("returns an empty list for empty output", () => {
     expect(parseWorktreeList("")).toEqual([]);
+  });
+});
+
+describe("defaultWorktreePath", () => {
+  test("creates a sibling directory named after the branch", () => {
+    expect(defaultWorktreePath("/repos/app", "feature/login")).toBe("/repos/app-feature-login");
+    expect(defaultWorktreePath("/repos/app", "fix it!")).toBe("/repos/app-fix-it");
+  });
+});
+
+describe("createWorktree", () => {
+  function initRepo(): string {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    const run = (...args: string[]) => execFileSync("git", args, { cwd: root });
+    run("init", "-q", "-b", "main", repo);
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"], { cwd: repo });
+    return repo;
+  }
+
+  test("creates a new branch in the default path", async () => {
+    const repo = initRepo();
+    const path = await createWorktree(repo, { branch: "feature/login" });
+    expect(path).toBe(`${repo}-feature-login`);
+    const worktrees = await listWorktrees(repo);
+    expect(worktrees.map((w) => [w.path, w.branch])).toEqual([
+      [repo, "main"],
+      [path, "feature/login"],
+    ]);
+  });
+
+  test("checks out an existing branch in a custom path", async () => {
+    const repo = initRepo();
+    execFileSync("git", ["branch", "existing"], { cwd: repo });
+    const path = await createWorktree(repo, { branch: "existing", path: "../custom" });
+    expect(path).toBe(join(repo, "..", "custom"));
+    expect((await listWorktrees(repo))[1]?.branch).toBe("existing");
+  });
+
+  test("rejects invalid branch names", async () => {
+    const repo = initRepo();
+    await expect(createWorktree(repo, { branch: "--force" })).rejects.toThrow();
+    await expect(createWorktree(repo, { branch: "bad..name" })).rejects.toThrow();
   });
 });

@@ -20,7 +20,11 @@ Al abrir la vista, la extensión levanta un servidor HTTP local (`127.0.0.1`, pu
 aleatorio) que sirve los archivos de `web/`, y los muestra en un webview dentro de la
 barra lateral. La web consulta `GET /api/worktrees`, que ejecuta
 `git worktree list --porcelain` en la primera carpeta abierta del workspace, y muestra
-cada worktree con su rama (o commit si está *detached*) y su ruta. El servidor se
+cada worktree con su rama (o commit si está *detached*) y su ruta.
+
+El botón **Crear worktree** abre un formulario (rama, base y ruta opcionales) que llama a
+`POST /api/worktrees`. Si la rama no existe se crea con `git worktree add -b`; la ruta
+por defecto es una carpeta hermana del repo (`<repo>-<rama>`). El servidor
 cierra al desactivar la extensión.
 
 Otros scripts:

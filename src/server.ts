@@ -1,8 +1,8 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { listWorktrees } from "./worktrees";
+import { createWorktree, listWorktrees } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -16,6 +16,15 @@ const contentTypes: Record<string, string> = {
 export interface WebServer {
   url: string;
   close(): Promise<void>;
+}
+
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 64 * 1024) throw new Error("Request body too large");
+  }
+  return JSON.parse(body);
 }
 
 export interface WebServerOptions {
@@ -39,6 +48,28 @@ export async function startWebServer(root: string, options: WebServerOptions): P
         return;
       }
       try {
+        if (req.method === "POST") {
+          // Only the page served by this server may create worktrees: other sites
+          // cannot send a JSON body cross-origin without a CORS preflight we never allow.
+          // The host check also blocks DNS rebinding.
+          const host = req.headers.host ?? "";
+          if (
+            !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host) ||
+            req.headers.origin !== `http://${host}` || !req.headers["content-type"]?.startsWith("application/json")
+          ) {
+            sendJson(403, { error: "Forbidden" });
+            return;
+          }
+          const input = (await readJson(req)) as { branch?: unknown; base?: unknown; path?: unknown };
+          const asString = (value: unknown) => (typeof value === "string" ? value : undefined);
+          const path = await createWorktree(cwd, {
+            branch: asString(input.branch) ?? "",
+            base: asString(input.base),
+            path: asString(input.path),
+          });
+          sendJson(201, { cwd, path, worktrees: await listWorktrees(cwd) });
+          return;
+        }
         sendJson(200, { cwd, worktrees: await listWorktrees(cwd) });
       } catch (error) {
         sendJson(500, { cwd, error: error instanceof Error ? error.message : String(error) });
