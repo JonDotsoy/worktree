@@ -40,3 +40,17 @@ Otros scripts:
 - `bun test`: ejecuta los tests.
 
 También puedes usar <kbd>F5</kbd> dentro de VS Code (configuración *Run Extension*).
+
+## Release
+
+El workflow **Release** (`.github/workflows/release.yml`) se ejecuta a mano desde
+*Actions → Release → Run workflow*. Elige `patch` (por defecto), `minor` o `major`, y el
+workflow:
+
+1. Revisa tipos y corre los tests.
+2. Sube la versión en `package.json`.
+3. Empaqueta la extensión con `vsce` (`worktree-<versión>.vsix`).
+4. Hace commit de la versión (`chore(release): v<versión>`), crea el tag `v<versión>` y los sube a la rama elegida.
+5. Crea el release en GitHub con el `.vsix` adjunto.
+
+Para empaquetar localmente: `bun run package`.

@@ -5,3 +5,6 @@ tsconfig.json
 bun.lock
 DESIGN.md
 **/*.map
+.github/**
+.gitignore
+CODEOWNERS
