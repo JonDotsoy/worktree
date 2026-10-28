@@ -35,7 +35,7 @@ los worktrees del repositorio abierto:
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/screenshots/copiar-ruta.png" alt="Copiar ruta" width="100%"><br><sub>Copiar ruta</sub></td>
-    <td align="center" valign="top"><img src="docs/screenshots/rutas-tilde.png" alt="Rutas con ~" width="100%"><br><sub>Rutas con ~</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/estados.png" alt="Estados" width="100%"><br><sub>Estados y rutas con ~</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-formulario.png" alt="Crear worktree" width="100%"><br><sub>Crear worktree</sub></td>
     <td align="center" valign="top"><img src="docs/screenshots/crear-worktree-resultado.png" alt="Worktree creado" width="100%"><br><sub>Worktree creado</sub></td>
   </tr>
@@ -91,6 +91,9 @@ Otros scripts:
 - `bun run watch`: recompila al guardar.
 - `bun run typecheck`: revisa los tipos con TypeScript.
 - `bun test`: ejecuta los tests.
+- `bun run screenshots`: regenera las capturas de `docs/screenshots/` (crea un repo demo
+  temporal, levanta la UI real y la captura con Playwright; define
+  `PLAYWRIGHT_CHROMIUM_PATH` para usar otro Chromium).
 
 También puedes usar <kbd>F5</kbd> dentro de VS Code (configuración *Run Extension*).
 
