@@ -171,7 +171,7 @@
     .badge.current { background: var(--fg-strong); color: var(--bg, #fff); }
     .worktree.is-current { border-color: var(--focus); }
     .badge.main { background: var(--accent); color: var(--accent-fg); }
-    .worktree { cursor: default; user-select: none; }
+    .worktree { cursor: default; user-select: text; }
     .worktree:hover { background: var(--hover-bg); }
     .worktree:focus-visible { outline: 1px solid var(--focus); outline-offset: 1px; }
     .date { margin-top: 4px; font-size: 12px; color: var(--fg-muted); }
@@ -1097,6 +1097,42 @@
     document.getElementById("settings-close").addEventListener("click", () => toggleSettings(false));
     fetch("/api/settings").then((r) => (r.ok ? r.json() : undefined)).then((data) => data && applySettings(data), () => {});
     listen();
+
+    /**
+     * VS Code does not forward Ctrl/Cmd+C/X/V/A to a cross-origin iframe inside a webview,
+     * so clipboard shortcuts do nothing. Handle them here with the Clipboard API.
+     */
+    document.addEventListener("keydown", async (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented) return;
+      const key = event.key.toLowerCase();
+      if (!["c", "x", "v", "a"].includes(key)) return;
+      const el = document.activeElement;
+      const editable = el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !["checkbox", "radio", "button", "submit"].includes(el.type)));
+      try {
+        if (key === "a") {
+          if (editable) el.select();
+          else getSelection().selectAllChildren(document.body);
+          event.preventDefault();
+        } else if (key === "c" || key === "x") {
+          const text = editable ? el.value.slice(el.selectionStart, el.selectionEnd) : String(getSelection());
+          if (!text) return;
+          event.preventDefault();
+          await navigator.clipboard.writeText(text);
+          if (key === "x" && editable && !el.readOnly) {
+            el.setRangeText("", el.selectionStart, el.selectionEnd, "end");
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        } else if (editable && !el.readOnly) {
+          event.preventDefault();
+          const text = await navigator.clipboard.readText();
+          el.setRangeText(text, el.selectionStart, el.selectionEnd, "end");
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      } catch {
+        // Clipboard permission denied: fall back to the browser's own behavior.
+        document.execCommand(key === "v" ? "paste" : key === "x" ? "cut" : key === "c" ? "copy" : "selectAll");
+      }
+    });
   </script>
 </body>
 </html>

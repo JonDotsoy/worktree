@@ -61,7 +61,7 @@ function renderFrame(webview: vscode.Webview, src: string): string {
   </style>
 </head>
 <body>
-  <iframe src="${src}" title="Worktree"></iframe>
+  <iframe src="${src}" title="Worktree" allow="clipboard-read; clipboard-write"></iframe>
   <script nonce="${nonce}">
     // The iframe is served from another origin, so it does not inherit the --vscode-*
     // variables VS Code injects here. Forward them, and again on every theme change.
