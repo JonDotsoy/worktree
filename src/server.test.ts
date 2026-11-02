@@ -84,3 +84,23 @@ test("DELETE /api/worktrees is protected and refuses the main worktree", async (
   expect((await del(trusted(), { path: repo, force: true })).status).toBe(400);
   expect((await del(trusted(), { path: 1 })).status).toBe(400);
 });
+
+test("the page is served with the locale chosen by the extension", async () => {
+  const localized = await startWebServer(resolve(import.meta.dir, "..", "web"), { cwd: () => repo, open: async () => {}, locale: () => "en" });
+  try {
+    const html = await (await fetch(localized.url)).text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('"settings.title":"Settings"');
+  } finally {
+    await localized.close();
+  }
+});
+
+test("the language chosen in the settings panel wins over the VS Code one", async () => {
+  const put = await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "en" }) });
+  expect(((await put.json()) as { locale: string }).locale).toBe("en");
+  expect(await (await fetch(server.url)).text()).toContain('<html lang="en">');
+  const bad = await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "fr" }) });
+  expect(bad.status).toBe(400);
+  await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "auto" }) });
+});

@@ -58,6 +58,8 @@ los worktrees del repositorio abierto:
 
 La configuración y las descripciones se guardan automáticamente en `.git/_worktree_configs`.
 
+**Idioma:** la opción `worktree.locale` de VS Code (`auto`, `es` o `en`) elige el idioma de la vista. Con `auto` sigue el idioma de VS Code (español si es español, inglés en cualquier otro caso). Los textos viven en `locales/es.json` y `locales/en.json`; para agregar un idioma suma su archivo y agrégalo a `LOCALES` en `src/i18n.ts` y al `enum` de `package.json`.
+
 ## Instalación
 
 1. Descarga el archivo `.vsix` de la última versión en
