@@ -84,3 +84,14 @@ test("DELETE /api/worktrees is protected and refuses the main worktree", async (
   expect((await del(trusted(), { path: repo, force: true })).status).toBe(400);
   expect((await del(trusted(), { path: 1 })).status).toBe(400);
 });
+
+test("the page is served with the locale chosen by the extension", async () => {
+  const localized = await startWebServer(resolve(import.meta.dir, "..", "web"), { cwd: () => repo, open: async () => {}, locale: () => "en" });
+  try {
+    const html = await (await fetch(localized.url)).text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('"settings.title":"Settings"');
+  } finally {
+    await localized.close();
+  }
+});

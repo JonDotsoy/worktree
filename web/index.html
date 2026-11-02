@@ -328,53 +328,53 @@
   <div class="header">
     <h1>Worktree</h1>
     <div class="actions">
-      <button id="settings-toggle" type="button" class="icon" title="Configuración" aria-label="Configuración"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-      <button id="create" type="button" class="primary">Crear worktree</button>
+      <button id="settings-toggle" type="button" class="icon" data-i18n-title="settings.title" data-i18n-aria-label="settings.title"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button id="create" type="button" class="primary" data-i18n="create"></button>
     </div>
   </div>
   <form id="settings" class="card" hidden>
-    <h2>Configuración</h2>
-    <label>Rama base para worktrees nuevos
+    <h2 data-i18n="settings.title"></h2>
+    <label><span data-i18n="settings.baseBranch.label"></span>
       <select name="baseBranch"></select>
-      <small>Opcional. Se usa al crear una rama nueva si no indicas otra base. Se guarda en <code>.git/_worktree_configs</code>.</small>
+      <small data-i18n-html="settings.baseBranch.hint"></small>
     </label>
-    <label>Carpeta base de worktrees
+    <label><span data-i18n="settings.dir.label"></span>
       <input name="worktreesDir" placeholder=".worktree" autocomplete="off">
-      <small>Relativa a la raíz del proyecto. Un worktree "foo" queda en <code>&lt;carpeta&gt;/foo</code>. Por defecto, <code>.worktree</code>.</small>
+      <small data-i18n-html="settings.dir.hint"></small>
     </label>
     <label class="check">
       <input type="checkbox" name="compact">
-      Estilo compacto
-      <small>Muestra cada worktree en una fila densa en lugar de una tarjeta.</small>
+      <span data-i18n="settings.compact.label"></span>
+      <small data-i18n="settings.compact.hint"></small>
     </label>
     <p id="settings-message" class="message" hidden></p>
     <div class="actions">
-      <button type="button" id="settings-close">Volver</button>
+      <button type="button" id="settings-close" data-i18n="settings.back"></button>
     </div>
   </form>
   <div id="main-view">
   <form id="create-form" class="card" hidden>
-    <label>Rama
-      <input name="branch" required placeholder="feature/mi-cambio" autocomplete="off">
-      <small>Si no existe, se crea desde la base.</small>
+    <label><span data-i18n="form.branch.label"></span>
+      <input name="branch" required data-i18n-placeholder="form.branch.placeholder" autocomplete="off">
+      <small data-i18n="form.branch.hint"></small>
     </label>
-    <label>Base
+    <label><span data-i18n="form.base.label"></span>
       <input name="base" placeholder="main" autocomplete="off">
-      <small>Opcional. Por defecto, <code id="base-default">HEAD</code>.</small>
+      <small data-i18n-html="form.base.hint"></small>
     </label>
-    <label>Ruta
-      <input name="path" placeholder=".worktree/feature-mi-cambio" autocomplete="off">
-      <small>Opcional. Por defecto, <code id="path-default">.worktree/&lt;nombre&gt;</code>.</small>
+    <label><span data-i18n="form.path.label"></span>
+      <input name="path" autocomplete="off">
+      <small data-i18n-html="form.path.hint"></small>
     </label>
     <p id="form-message" class="message error" hidden></p>
     <div class="actions">
-      <button type="submit" class="primary">Crear</button>
-      <button type="button" id="cancel">Cancelar</button>
+      <button type="submit" class="primary" data-i18n="form.submit"></button>
+      <button type="button" id="cancel" data-i18n="form.cancel"></button>
     </div>
   </form>
-  <input id="search" type="search" placeholder="Buscar por rama, ruta o descripción" aria-label="Buscar worktrees" autocomplete="off" spellcheck="false">
-  <p id="message" class="message">Cargando…</p>
-  <p id="empty" class="message" hidden>Ningún worktree coincide con la búsqueda.</p>
+  <input id="search" type="search" data-i18n-placeholder="search.placeholder" data-i18n-aria-label="search.label" autocomplete="off" spellcheck="false">
+  <p id="message" class="message" data-i18n="list.loading"></p>
+  <p id="empty" class="message" hidden data-i18n="search.empty"></p>
   <ul id="list" class="list"></ul>
   </div>
   <div id="menu" class="menu" role="menu" hidden>
@@ -392,8 +392,8 @@
       <p id="confirm-text"></p>
       <p id="confirm-path"><code></code></p>
       <div class="actions">
-        <button type="button" id="confirm-cancel">Cancelar</button>
-        <button type="button" id="confirm-ok" class="danger">Eliminar</button>
+        <button type="button" id="confirm-cancel" data-i18n="form.cancel"></button>
+        <button type="button" id="confirm-ok" class="danger" data-i18n="delete"></button>
       </div>
     </div>
   </div>
@@ -408,6 +408,18 @@
       }
       root.dataset.vscodeThemeKind = event.data.kind ?? "";
     });
+
+    // The server injects the active locale (see the setting `worktree.locale`) into `window.__I18N__`.
+    const I18N = window.__I18N__ ?? { locale: "es", messages: {} };
+    const LOCALE = I18N.locale;
+    function t(key, params) {
+      return (I18N.messages[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ""));
+    }
+    for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+    for (const node of document.querySelectorAll("[data-i18n-html]")) node.innerHTML = t(node.dataset.i18nHtml);
+    for (const node of document.querySelectorAll("[data-i18n-title]")) node.title = t(node.dataset.i18nTitle);
+    for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
+    for (const node of document.querySelectorAll("[data-i18n-aria-label]")) node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
 
     const list = document.getElementById("list");
     const message = document.getElementById("message");
@@ -470,7 +482,7 @@
           const item = el("li", compactMode ? "row worktree" : "card worktree");
           item.tabIndex = 0;
           item.classList.toggle("is-current", Boolean(worktree.current));
-          item.title = "Doble clic para abrir";
+          item.title = t("item.open.hint");
           item.addEventListener("dblclick", () => openWorktree(worktree.path));
           item.addEventListener("keydown", (event) => {
             if (event.key === "Enter") openWorktree(worktree.path);
@@ -487,11 +499,11 @@
             showMenu(event.clientX, event.clientY, worktree);
           });
           const title = el("div", "branch");
-          const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? "(sin HEAD)");
+          const name = worktree.branch ?? (worktree.bare ? "(bare)" : worktree.head?.slice(0, 7) ?? t("badge.noHead"));
           title.append(el("span", "name", name));
           if (!compactMode) title.append(starButton(worktree));
           if (worktree.current) title.append(el("span", "badge current", "current"));
-          if (worktree.main) title.append(el("span", "badge main", "principal"));
+          if (worktree.main) title.append(el("span", "badge main", t("badge.main")));
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
@@ -505,7 +517,7 @@
             date.addEventListener("mouseleave", () => (date.textContent = relativeTime(worktree.committedAt, compactMode)));
           }
           if (compactMode) {
-            const edit = iconButton("edit", worktree.description ? "Editar descripción" : "Agregar descripción", description.startEdit);
+            const edit = iconButton("edit", worktree.description ? t("description.edit") : t("description.add"), description.startEdit);
             title.append(starButton(worktree), copyButton(worktree.path), edit);
             const meta = el("div", "row-meta");
             meta.append(path);
@@ -568,9 +580,9 @@
         const area = el("textarea");
         area.value = worktree.description ?? "";
         area.maxLength = DESCRIPTION_MAX;
-        area.placeholder = "Describe para qué sirve este worktree";
-        area.setAttribute("aria-label", "Descripción del worktree");
-        const hint = el("small", "", `Se guarda al salir del campo o con ${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘+Enter" : "Alt+Enter"}. Esc cancela.`);
+        area.placeholder = t("description.placeholder");
+        area.setAttribute("aria-label", t("description.label"));
+        const hint = el("small", "", t("description.hint", { shortcut: /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘+Enter" : "Alt+Enter" }));
         let cancelled = false;
         area.addEventListener("keydown", (event) => {
           if (event.key === "Escape") {
@@ -596,7 +608,7 @@
             editing = false;
             showSnapshot(data);
             message.className = "message";
-            message.textContent = "Descripción guardada.";
+            message.textContent = t("description.saved");
           } catch (error) {
             message.className = "message error";
             message.textContent = error.message;
@@ -619,7 +631,7 @@
           }
         } else if (worktree.description) {
           const text = el("div", "description-text");
-          const edit_ = iconButton("edit", "Editar descripción", edit);
+          const edit_ = iconButton("edit", t("description.edit"), edit);
           edit_.classList.add("edit");
           const paragraph = el("p", "", worktree.description);
           paragraph.addEventListener("dblclick", edit);
@@ -629,7 +641,7 @@
           const add = el("button", "add");
           add.type = "button";
           add.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS.edit}</svg>`;
-          add.append("Agregar descripción");
+          add.append(t("description.add"));
           add.addEventListener("click", (event) => {
             event.stopPropagation();
             edit();
@@ -659,7 +671,7 @@
     }
 
     function starButton(worktree) {
-      const label = worktree.starred ? "Quitar estrella" : "Marcar con estrella";
+      const label = worktree.starred ? t("star.remove") : t("star.mark");
       const button = iconButton("star", label, () => toggleStar(worktree));
       button.classList.add("star");
       button.classList.toggle("on", Boolean(worktree.starred));
@@ -680,22 +692,22 @@
       return button;
     }
 
-    const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+    const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" });
     const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
 
     /** Full local date and time with the time zone, shown while hovering the relative time. */
     function fullDate(seconds) {
-      return new Date(seconds * 1000).toLocaleString("es", { dateStyle: "full", timeStyle: "long" });
+      return new Date(seconds * 1000).toLocaleString(LOCALE, { dateStyle: "full", timeStyle: "long" });
     }
 
     /** `Último commit hace 2 horas`; compact rows drop the prefix (`hace 2 horas`). */
     function relativeTime(seconds, compact) {
-      const prefix = compact ? "" : "Último commit ";
+      const wrap = (when) => (compact ? when : t("time.lastCommit", { when }));
       const diff = seconds - Date.now() / 1000;
       for (const [unit, size] of units) {
-        if (Math.abs(diff) >= size) return `${prefix}${rtf.format(Math.round(diff / size), unit)}`;
+        if (Math.abs(diff) >= size) return wrap(rtf.format(Math.round(diff / size), unit));
       }
-      return `${prefix}hace un momento`;
+      return wrap(t("time.now"));
     }
 
     const ICONS = {
@@ -718,8 +730,8 @@
       const button = el("button", "copy");
       setIcon(button, "copy");
       button.type = "button";
-      button.title = "Copiar ruta";
-      button.setAttribute("aria-label", "Copiar ruta");
+      button.title = t("path.copy");
+      button.setAttribute("aria-label", t("path.copy"));
       for (const type of ["dblclick", "keydown"]) button.addEventListener(type, (event) => event.stopPropagation());
       button.addEventListener("click", async (event) => {
         event.stopPropagation();
@@ -783,7 +795,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         message.className = "message";
-        message.textContent = `Abriendo ${tildify(data.path)}`;
+        message.textContent = t("open.opening", { path: tildify(data.path) });
       } catch (error) {
         message.className = "message error";
         message.textContent = error.message;
@@ -795,14 +807,14 @@
     const menuOpen = document.getElementById("menu-open");
     const menuSep = document.getElementById("menu-sep");
     setIcon(menuOpen, "open");
-    menuOpen.append("Abrir");
+    menuOpen.append(t("menu.open"));
     menuOpen.append(el("span", "hint", "Enter"));
     const menuStar = document.getElementById("menu-star");
     menuStar.addEventListener("click", () => {
       hideMenu();
       toggleStar(menuWorktree);
     });
-    for (const [id, label] of [["menu-copy-abs", "Copiar ruta absoluta"], ["menu-copy-rel", "Copiar ruta relativa"]]) {
+    for (const [id, label] of [["menu-copy-abs", t("path.copyAbsolute")], ["menu-copy-rel", t("path.copyRelative")]]) {
       const button = document.getElementById(id);
       setIcon(button, "copy");
       button.append(label);
@@ -811,11 +823,11 @@
         const text = id === "menu-copy-abs" ? menuPath : relativePath(projectDir, menuPath);
         const ok = await copyText(text);
         message.className = ok ? "message" : "message error";
-        message.textContent = ok ? `Copiado: ${text}` : "No se pudo copiar la ruta.";
+        message.textContent = ok ? t("path.copied", { text }) : t("path.copyFailed");
       });
     }
     setIcon(menuDelete, "trash");
-    menuDelete.append("Eliminar");
+    menuDelete.append(t("delete"));
     /** Element that had focus before the menu opened, to give it back on close. */
     let menuReturnFocus;
     let menuPath;
@@ -828,7 +840,7 @@
       menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);
       setIcon(menuStar, "star");
       menuStar.classList.toggle("on", Boolean(worktree.starred));
-      menuStar.append(worktree.starred ? "Quitar estrella" : "Agregar estrella");
+      menuStar.append(worktree.starred ? t("star.remove") : t("star.add"));
       menuReturnFocus = document.activeElement;
       menu.hidden = false;
       const { width, height } = menu.getBoundingClientRect();
@@ -919,10 +931,10 @@
         let { response, data } = await requestDelete(worktree.path, false);
         if (response.status === 409 && data.dirty) {
           const accepted = await askConfirm({
-            title: "Cambios sin confirmar",
-            text: `Este worktree tiene ${data.changes} cambio(s) sin confirmar (en stage, sin stage o sin seguimiento). Si lo eliminas, se perderán.`,
+            title: t("delete.dirty.title"),
+            text: t("delete.dirty.text", { changes: data.changes }),
             path: tildify(worktree.path),
-            ok: "Eliminar de todos modos",
+            ok: t("delete.anyway"),
             warning: true,
           });
           if (!accepted) return;
@@ -932,7 +944,7 @@
         home = data.home ?? home;
         showSnapshot(data);
         message.className = "message";
-        message.textContent = `Eliminado ${tildify(worktree.path)}`;
+        message.textContent = t("delete.done", { path: tildify(worktree.path) });
       } catch (error) {
         message.className = "message error";
         message.textContent = error.message;
@@ -956,7 +968,7 @@
         home = data.home ?? home;
         showSnapshot(data);
         message.className = "message";
-        message.textContent = `${data.worktrees.length} worktree(s) en ${tildify(data.cwd)}`;
+        message.textContent = t("list.count", { count: data.worktrees.length, cwd: tildify(data.cwd) });
       });
       source.addEventListener("failure", (event) => {
         list.replaceChildren();
@@ -964,7 +976,7 @@
         message.textContent = JSON.parse(event.data).error;
       });
       source.addEventListener("error", () => {
-        if (source.readyState === EventSource.CONNECTING) message.textContent = "Reconectando…";
+        if (source.readyState === EventSource.CONNECTING) message.textContent = t("list.reconnecting");
       });
     }
 
@@ -994,7 +1006,7 @@
         toggleForm(false);
         showSnapshot(data);
         message.className = "message";
-        message.textContent = `Worktree creado en ${tildify(data.path)}`;
+        message.textContent = t("form.created", { path: tildify(data.path) });
       } catch (error) {
         formMessage.textContent = error.message;
         formMessage.hidden = false;
@@ -1020,11 +1032,11 @@
     /** Shows the configured defaults as placeholders and in the hints of the create form. */
     function updateFormDefaults() {
       const dir = settingsState.worktreesDir.replace(/\/+$/, "");
-      const name = slug(form.elements.branch.value.trim()) || "feature-mi-cambio";
+      const name = slug(form.elements.branch.value.trim()) || slug(t("form.branch.placeholder"));
       form.elements.base.placeholder = settingsState.baseBranch || "HEAD";
       form.elements.path.placeholder = `${dir}/${name}`;
       document.getElementById("base-default").textContent = settingsState.baseBranch || "HEAD";
-      document.getElementById("path-default").textContent = `${dir}/<nombre>`;
+      document.getElementById("path-default").textContent = `${dir}/${t("form.path.name")}`;
     }
 
     form.elements.branch.addEventListener("input", updateFormDefaults);
@@ -1032,7 +1044,7 @@
     function applySettings(data) {
       const names = data.branches.includes(data.baseBranch) || !data.baseBranch ? data.branches : [data.baseBranch, ...data.branches];
       const option = (value, text) => Object.assign(document.createElement("option"), { value, textContent: text });
-      settings.elements.baseBranch.replaceChildren(option("", "HEAD (por defecto)"), ...names.map((name) => option(name, name)));
+      settings.elements.baseBranch.replaceChildren(option("", t("settings.baseBranch.default")), ...names.map((name) => option(name, name)));
       settings.elements.baseBranch.value = data.baseBranch;
       settings.elements.worktreesDir.value = data.worktreesDir;
       settingsState.baseBranch = data.baseBranch;
@@ -1081,7 +1093,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         applySettings(data);
-        showSettingsMessage("Guardado automáticamente.", false);
+        showSettingsMessage(t("settings.saved"), false);
       } catch (error) {
         showSettingsMessage(error.message, true);
       } finally {

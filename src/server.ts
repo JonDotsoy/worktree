@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { watch, type FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { loadLocale, type Locale } from "./i18n";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
@@ -94,6 +95,10 @@ export interface WebServerOptions {
   cwd(): string | undefined;
   /** Opens a worktree directory in VS Code. */
   open(path: string): Promise<void>;
+  /** Language of the UI; defaults to Spanish. */
+  locale?(): Locale;
+  /** Directory with the `<locale>.json` message files; defaults to `locales` next to `root`. */
+  localesDir?: string;
 }
 
 /**
@@ -275,7 +280,18 @@ export async function startWebServer(root: string, options: WebServerOptions): P
     }
 
     try {
-      const body = await readFile(file);
+      let body = await readFile(file);
+      if (file === normalize(join(root, "index.html"))) {
+        const locale = options.locale?.() ?? "es";
+        const messages = await loadLocale(options.localesDir ?? join(root, "..", "locales"), locale);
+        const data = JSON.stringify({ locale, messages }).replace(/</g, "\\u003c");
+        body = Buffer.from(
+          body
+            .toString("utf8")
+            .replace('<html lang="es">', `<html lang="${locale}">`)
+            .replace("<script>", () => `<script>window.__I18N__ = ${data};</script>\n  <script>`),
+        );
+      }
       res.writeHead(200, {
         "Content-Type": contentTypes[extname(file)] ?? "application/octet-stream",
         "Cache-Control": "no-store",

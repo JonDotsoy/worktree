@@ -1,24 +1,38 @@
 import * as vscode from "vscode";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { resolveLocale } from "./i18n";
 import { startWebServer, type WebServer } from "./server";
 
 class WorktreeViewProvider implements vscode.WebviewViewProvider {
   private server?: Promise<WebServer>;
+  private view?: vscode.WebviewView;
+  private reloads = 0;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
   async resolveWebviewView(view: vscode.WebviewView): Promise<void> {
+    this.view = view;
     view.webview.options = { enableScripts: true };
 
     this.server ??= startWebServer(vscode.Uri.joinPath(this.extensionUri, "web").fsPath, {
       cwd: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       open: openInVSCode,
+      locale: currentLocale,
+      localesDir: vscode.Uri.joinPath(this.extensionUri, "locales").fsPath,
     });
     const { url } = await this.server;
-    const src = (await vscode.env.asExternalUri(vscode.Uri.parse(url))).toString(true);
+    // The query only busts the cache: reloading the iframe re-reads the locale from the server.
+    const src = (await vscode.env.asExternalUri(vscode.Uri.parse(`${url}?v=${this.reloads}`))).toString(true);
 
-    view.webview.html = renderFrame(view.webview, src);
+    view.webview.html = renderFrame(view.webview, src, currentLocale());
+  }
+
+  /** Re-renders the view, e.g. after `worktree.locale` changes. */
+  async reload(): Promise<void> {
+    if (!this.view) return;
+    this.reloads++;
+    await this.resolveWebviewView(this.view);
   }
 
   async dispose(): Promise<void> {
@@ -47,11 +61,15 @@ async function openInVSCode(path: string): Promise<void> {
   }
 }
 
-function renderFrame(webview: vscode.Webview, src: string): string {
+function currentLocale() {
+  return resolveLocale(vscode.workspace.getConfiguration("worktree").get("locale"), vscode.env.language);
+}
+
+function renderFrame(webview: vscode.Webview, src: string, locale: string): string {
   const origin = new URL(src).origin;
   const nonce = randomBytes(16).toString("base64");
   return `<!DOCTYPE html>
-<html lang="es">
+<html lang="${locale}">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
@@ -90,6 +108,9 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("worktree.list", provider, {
       webviewOptions: { retainContextWhenHidden: true },
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("worktree.locale")) void provider.reload();
     }),
     { dispose: () => void provider.dispose() },
   );

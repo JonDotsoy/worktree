@@ -24,6 +24,26 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
+    "configuration": {
+      "title": "Worktree",
+      "properties": {
+        "worktree.locale": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "es",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code display language (Spanish if it is Spanish, English otherwise).",
+            "Español",
+            "English"
+          ],
+          "default": "auto",
+          "description": "Language of the Worktree view. / Idioma de la vista de Worktree."
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
