@@ -5,7 +5,7 @@ import { loadLocale, type Locale } from "./i18n";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createWorktree, DirtyWorktreeError, removeWorktree, getBaseBranch, getCompact, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setWorktreeDescription, setWorktreeStarred, setWorktreesDir } from "./worktrees";
+import { createWorktree, DirtyWorktreeError, removeWorktree, getBaseBranch, getCompact, getLocaleSetting, getWorktreesDir, gitCommonDir, listBranches, listWorktrees, setBaseBranch, setCompact, setLocaleSetting, setWorktreeDescription, setWorktreeStarred, setWorktreesDir } from "./worktrees";
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -145,10 +145,11 @@ export async function startWebServer(root: string, options: WebServerOptions): P
             sendJson(403, { error: "Forbidden" });
             return;
           }
-          const input = (await readJson(req)) as { baseBranch?: unknown; worktreesDir?: unknown; compact?: unknown };
+          const input = (await readJson(req)) as { baseBranch?: unknown; worktreesDir?: unknown; compact?: unknown; locale?: unknown };
           if (typeof input.baseBranch === "string") await setBaseBranch(cwd, input.baseBranch);
           if (typeof input.worktreesDir === "string") await setWorktreesDir(cwd, input.worktreesDir);
           if (typeof input.compact === "boolean") await setCompact(cwd, input.compact);
+          if (typeof input.locale === "string") await setLocaleSetting(cwd, input.locale);
         } else if (req.method !== "GET") {
           sendJson(405, { error: "Method not allowed" });
           return;
@@ -157,6 +158,7 @@ export async function startWebServer(root: string, options: WebServerOptions): P
           baseBranch: await getBaseBranch(cwd),
           worktreesDir: await getWorktreesDir(cwd),
           compact: await getCompact(cwd),
+          locale: await getLocaleSetting(cwd),
           branches: await listBranches(cwd),
         });
       } catch (error) {
@@ -282,7 +284,9 @@ export async function startWebServer(root: string, options: WebServerOptions): P
     try {
       let body = await readFile(file);
       if (file === normalize(join(root, "index.html"))) {
-        const locale = options.locale?.() ?? "es";
+        const cwd = options.cwd();
+        const chosen = cwd ? await getLocaleSetting(cwd).catch(() => "auto" as const) : "auto";
+        const locale: Locale = chosen !== "auto" ? chosen : (options.locale?.() ?? "es");
         const messages = await loadLocale(options.localesDir ?? join(root, "..", "locales"), locale);
         const data = JSON.stringify({ locale, messages }).replace(/</g, "\\u003c");
         body = Buffer.from(

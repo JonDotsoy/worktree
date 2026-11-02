@@ -347,6 +347,14 @@
       <span data-i18n="settings.compact.label"></span>
       <small data-i18n="settings.compact.hint"></small>
     </label>
+    <label><span data-i18n="settings.locale.label"></span>
+      <select name="locale">
+        <option value="auto" data-i18n="settings.locale.auto"></option>
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+      <small data-i18n-html="settings.locale.hint"></small>
+    </label>
     <p id="settings-message" class="message" hidden></p>
     <div class="actions">
       <button type="button" id="settings-close" data-i18n="settings.back"></button>
@@ -1051,6 +1059,7 @@
       settingsState.worktreesDir = data.worktreesDir;
       settingsState.compact = data.compact === true;
       settings.elements.compact.checked = settingsState.compact;
+      settings.elements.locale.value = data.locale ?? "auto";
       if (compactMode !== settingsState.compact) {
         compactMode = settingsState.compact;
         render(lastWorktrees);
@@ -1094,6 +1103,8 @@
         if (!response.ok) throw new Error(data.error);
         applySettings(data);
         showSettingsMessage(t("settings.saved"), false);
+        // The texts are injected when the page is served, so a new language needs a reload.
+        if (field.name === "locale") location.reload();
       } catch (error) {
         showSettingsMessage(error.message, true);
       } finally {
@@ -1101,7 +1112,7 @@
       }
     }
 
-    for (const name of ["baseBranch", "worktreesDir", "compact"]) {
+    for (const name of ["baseBranch", "worktreesDir", "compact", "locale"]) {
       settings.elements[name].addEventListener("change", (event) => saveSettings(event.target));
     }
 

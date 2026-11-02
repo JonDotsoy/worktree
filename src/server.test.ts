@@ -95,3 +95,12 @@ test("the page is served with the locale chosen by the extension", async () => {
     await localized.close();
   }
 });
+
+test("the language chosen in the settings panel wins over the VS Code one", async () => {
+  const put = await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "en" }) });
+  expect(((await put.json()) as { locale: string }).locale).toBe("en");
+  expect(await (await fetch(server.url)).text()).toContain('<html lang="en">');
+  const bad = await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "fr" }) });
+  expect(bad.status).toBe(400);
+  await fetch(`${server.url}api/settings`, { method: "PUT", headers: trusted(), body: JSON.stringify({ locale: "auto" }) });
+});

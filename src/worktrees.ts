@@ -232,6 +232,17 @@ export async function setCompact(cwd: string, value: boolean): Promise<void> {
   await writeSetting(cwd, "compact", value);
 }
 
+/** Language chosen in the settings panel: `es`, `en`, or `auto` to follow the VS Code setting. */
+export async function getLocaleSetting(cwd: string): Promise<"auto" | "es" | "en"> {
+  const { locale } = await readSettings(cwd);
+  return locale === "es" || locale === "en" ? locale : "auto";
+}
+
+export async function setLocaleSetting(cwd: string, value: string): Promise<void> {
+  if (value !== "auto" && value !== "es" && value !== "en") throw new Error("Invalid locale.");
+  await writeSetting(cwd, "locale", value === "auto" ? "" : value);
+}
+
 /** Longest description accepted, in characters. */
 export const MAX_DESCRIPTION_LENGTH = 500;
 
