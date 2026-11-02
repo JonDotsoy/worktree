@@ -4,12 +4,12 @@ This document describes what the **Worktree** extension does on your machine: wh
 
 ## Reporting a vulnerability
 
-If you find a security issue, email **hi@jon.soy** with a description, the steps to reproduce it, and the affected version. Please do not open a public issue with the details until a fix is available.
+If you find a security issue, please report it privately through [GitHub Security Advisories](https://github.com/JonDotsoy/worktree/security/advisories/new). Include a description, the steps to reproduce it, and the affected version. You can also email **hi@jon.soy** if you prefer. Please do not open a public issue with the details until a fix is available.
 
 ## Who to notify
 
-- **Vulnerabilities and security patches:** the maintainer, [@JonDotsoy](https://github.com/JonDotsoy), at **hi@jon.soy**. They are the only person responsible for the project and review every pull request (see `CODEOWNERS`).
-- **Proposed patches:** if you already have a fix, describe it in the same email, or send it as a pull request against `develop` once disclosure has been agreed. Until then, do not publish it.
+- **Vulnerabilities and security patches:** the maintainer, [@JonDotsoy](https://github.com/JonDotsoy), through a [private security advisory](https://github.com/JonDotsoy/worktree/security/advisories/new) or at **hi@jon.soy**. They are the only person responsible for the project and review every pull request (see `CODEOWNERS`).
+- **Proposed patches:** if you already have a fix, describe it in the same advisory or email, or send it as a pull request against `develop` once disclosure has been agreed. Until then, do not publish it.
 - **Non-security bugs:** open an issue at [github.com/JonDotsoy/worktree/issues](https://github.com/JonDotsoy/worktree/issues).
 
 Security fixes are shipped in a new version of the extension, available from [Releases](https://github.com/JonDotsoy/worktree/releases).
