@@ -172,6 +172,8 @@ interface Settings {
   worktreesDir?: string;
   /** Show the list as dense rows instead of cards. */
   compact?: boolean;
+  /** Language chosen in the settings panel; absent means follow VS Code. */
+  locale?: string;
 }
 
 async function readSettings(cwd: string): Promise<Settings> {
