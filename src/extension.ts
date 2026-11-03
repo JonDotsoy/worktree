@@ -9,7 +9,7 @@ class WorktreeViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private reloads = 0;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(private readonly extensionUri: vscode.Uri, private readonly version: string) {}
 
   async resolveWebviewView(view: vscode.WebviewView): Promise<void> {
     this.view = view;
@@ -20,6 +20,7 @@ class WorktreeViewProvider implements vscode.WebviewViewProvider {
       open: openInVSCode,
       locale: currentLocale,
       localesDir: vscode.Uri.joinPath(this.extensionUri, "locales").fsPath,
+      version: this.version,
     });
     const { url } = await this.server;
     // The query only busts the cache: reloading the iframe re-reads the locale from the server.
@@ -104,7 +105,7 @@ function renderFrame(webview: vscode.Webview, src: string, locale: string): stri
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new WorktreeViewProvider(context.extensionUri);
+  const provider = new WorktreeViewProvider(context.extensionUri, String(context.extension.packageJSON.version));
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("worktree.list", provider, {
       webviewOptions: { retainContextWhenHidden: true },

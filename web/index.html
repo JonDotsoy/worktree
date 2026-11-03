@@ -318,8 +318,11 @@
       font-size: 12px;
     }
     .row .description textarea { margin-top: 2px; }
+    #free-branches { margin-top: 16px; }
+    #free-branches h2 { margin: 0 0 8px; font-size: 13px; color: var(--fg-strong); }
     .message { color: var(--fg-muted); font-size: 13px; }
     .message.error { color: var(--error); }
+    .version { display: block; text-align: center; color: var(--fg-muted); font-size: 11px; }
     code { font-family: var(--font-mono); font-size: 12px; }
   </style>
 </head>
@@ -347,6 +350,11 @@
       <span data-i18n="settings.compact.label"></span>
       <small data-i18n="settings.compact.hint"></small>
     </label>
+    <label class="check">
+      <input type="checkbox" name="remoteBranches">
+      <span data-i18n="settings.remoteBranches.label"></span>
+      <small data-i18n="settings.remoteBranches.hint"></small>
+    </label>
     <label><span data-i18n="settings.locale.label"></span>
       <select name="locale">
         <option value="auto" data-i18n="settings.locale.auto"></option>
@@ -359,6 +367,7 @@
     <div class="actions">
       <button type="button" id="settings-close" data-i18n="settings.back"></button>
     </div>
+    <small id="settings-version" class="version" hidden></small>
   </form>
   <div id="main-view">
   <form id="create-form" class="card" hidden>
@@ -384,8 +393,13 @@
   <p id="message" class="message" data-i18n="list.loading"></p>
   <p id="empty" class="message" hidden data-i18n="search.empty"></p>
   <ul id="list" class="list"></ul>
+  <section id="free-branches" hidden>
+    <h2 data-i18n="branches.title"></h2>
+    <ul id="free-branches-list" class="list"></ul>
+  </section>
   </div>
   <div id="menu" class="menu" role="menu" hidden>
+    <button id="menu-create" type="button" role="menuitem" hidden></button>
     <button id="menu-open" type="button" role="menuitem"></button>
     <button id="menu-star" type="button" role="menuitem"></button>
     <hr role="separator">
@@ -558,6 +572,39 @@
       home = data.home ?? home;
       setCompactMode(data.compact === true);
       render(data.worktrees);
+      renderFreeBranches(data.freeBranches ?? [], data.freeRemoteBranches ?? []);
+    }
+
+    /** Lists the local branches no worktree has checked out. */
+    function renderFreeBranches(local, remote) {
+      const branches = [...local.map((name) => ({ name })), ...remote.map((name) => ({ name, remote: true }))];
+      document.getElementById("free-branches").hidden = branches.length === 0;
+      const list = document.getElementById("free-branches-list");
+      list.classList.toggle("compact", compactMode);
+      list.replaceChildren(
+        ...branches.map(({ name, remote }) => {
+          const item = el("li", compactMode ? "row" : "card");
+          item.tabIndex = 0;
+          item.title = t("branches.create.hint");
+          item.addEventListener("dblclick", () => createWorktreeFor(name, remote));
+          item.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            showBranchMenu(event.clientX, event.clientY, name, remote);
+          });
+          item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") createWorktreeFor(name, remote);
+            else if (event.target === item && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
+              event.preventDefault();
+              const box = item.getBoundingClientRect();
+              showBranchMenu(box.left + 16, box.top + 24, name, remote);
+            }
+          });
+          item.append(el("div", "branch", ""));
+          item.firstChild.append(el("span", "name", name));
+          if (remote) item.firstChild.append(el("span", "badge", t("branches.remote")));
+          return item;
+        }),
+      );
     }
 
     /** Switches between cards and rows; the settings checkbox follows, so other instances stay in sync. */
@@ -723,6 +770,7 @@
       edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
       star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
       check: '<polyline points="20 6 9 17 4 12"/>',
+      plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
       open: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
       trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
       warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
@@ -810,6 +858,29 @@
       }
     }
 
+    /** Creates the worktree of an existing branch and opens it in the IDE. */
+    async function createWorktreeFor(branch, remote) {
+      // `origin/foo` becomes the local branch `foo`, created from the remote one.
+      const base = remote ? branch : undefined;
+      if (remote) branch = branch.slice(branch.indexOf("/") + 1);
+      message.className = "message";
+      message.textContent = t("branches.creating", { branch });
+      try {
+        const response = await fetch("/api/worktrees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ branch, base }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        showSnapshot(data);
+        await openWorktree(data.path);
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = error.message;
+      }
+    }
+
     const menu = document.getElementById("menu");
     const menuDelete = document.getElementById("menu-delete");
     const menuOpen = document.getElementById("menu-open");
@@ -841,20 +912,41 @@
     let menuPath;
     let menuWorktree;
 
+    const menuCreate = document.getElementById("menu-create");
+    setIcon(menuCreate, "plus");
+    menuCreate.append(t("create"));
+    let menuBranch;
+    menuCreate.addEventListener("click", () => {
+      hideMenu();
+      createWorktreeFor(menuBranch.name, menuBranch.remote);
+    });
+
+    /** Menu of a branch without worktree: its only entry creates the worktree. */
+    function showBranchMenu(x, y, name, remote) {
+      menuBranch = { name, remote };
+      for (const child of menu.children) child.hidden = child !== menuCreate;
+      placeMenu(x, y);
+    }
+
     function showMenu(x, y, worktree) {
       menuPath = worktree.path;
       menuWorktree = worktree;
+      for (const child of menu.children) child.hidden = child === menuCreate;
       // The main worktree (and the one open in VS Code) cannot be removed, so no button.
       menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);
       setIcon(menuStar, "star");
       menuStar.classList.toggle("on", Boolean(worktree.starred));
       menuStar.append(worktree.starred ? t("star.remove") : t("star.add"));
+      placeMenu(x, y);
+    }
+
+    function placeMenu(x, y) {
       menuReturnFocus = document.activeElement;
       menu.hidden = false;
       const { width, height } = menu.getBoundingClientRect();
       menu.style.left = `${Math.min(x, innerWidth - width - 4)}px`;
       menu.style.top = `${Math.min(y, innerHeight - height - 4)}px`;
-      menu.querySelector("button").focus();
+      menuItems()[0].focus();
     }
 
     function hideMenu({ restoreFocus = false } = {}) {
@@ -1059,7 +1151,11 @@
       settingsState.worktreesDir = data.worktreesDir;
       settingsState.compact = data.compact === true;
       settings.elements.compact.checked = settingsState.compact;
+      settings.elements.remoteBranches.checked = data.remoteBranches !== false;
       settings.elements.locale.value = data.locale ?? "auto";
+      const versionLabel = document.getElementById("settings-version");
+      versionLabel.textContent = data.version ? t("settings.version", { version: data.version }) : "";
+      versionLabel.hidden = !data.version;
       if (compactMode !== settingsState.compact) {
         compactMode = settingsState.compact;
         render(lastWorktrees);
@@ -1112,7 +1208,7 @@
       }
     }
 
-    for (const name of ["baseBranch", "worktreesDir", "compact", "locale"]) {
+    for (const name of ["baseBranch", "worktreesDir", "compact", "remoteBranches", "locale"]) {
       settings.elements[name].addEventListener("change", (event) => saveSettings(event.target));
     }
 
