@@ -174,6 +174,8 @@ interface Settings {
   compact?: boolean;
   /** Language chosen in the settings panel; absent means follow VS Code. */
   locale?: string;
+  /** Hide remote branches from the free branches list; stored inverted so they show by default. */
+  hideRemoteBranches?: boolean;
 }
 
 async function readSettings(cwd: string): Promise<Settings> {
@@ -232,6 +234,15 @@ export async function getCompact(cwd: string): Promise<boolean> {
 /** Stores the list style; `false` removes the key, going back to cards. */
 export async function setCompact(cwd: string, value: boolean): Promise<void> {
   await writeSetting(cwd, "compact", value);
+}
+
+/** Whether remote branches are listed with the branches that have no worktree; on by default. */
+export async function getRemoteBranches(cwd: string): Promise<boolean> {
+  return (await readSettings(cwd)).hideRemoteBranches !== true;
+}
+
+export async function setRemoteBranches(cwd: string, value: boolean): Promise<void> {
+  await writeSetting(cwd, "hideRemoteBranches", !value);
 }
 
 /** Language chosen in the settings panel: `es`, `en`, or `auto` to follow the VS Code setting. */
@@ -323,6 +334,26 @@ export async function setWorktreeStarred(cwd: string, path: string, starred: boo
 export async function listBranches(cwd: string): Promise<string[]> {
   const out = await git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"]);
   return out.split("\n").filter((name) => name && !name.endsWith("/HEAD"));
+}
+
+/** Local branches that are not checked out in any worktree, sorted by name. */
+export async function listBranchesWithoutWorktree(cwd: string): Promise<string[]> {
+  const [out, worktrees] = await Promise.all([git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/heads"]), listWorktrees(cwd)]);
+  const used = new Set(worktrees.map((w) => w.branch));
+  return out.split("\n").filter((name) => name && !used.has(name)).sort();
+}
+
+/** Remote-tracking branches (`origin/foo`) with no local branch of the same name, sorted by name. */
+export async function listRemoteBranchesWithoutLocal(cwd: string): Promise<string[]> {
+  const [remotes, locals] = await Promise.all([
+    git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/remotes"]),
+    git(cwd, ["for-each-ref", "--format=%(refname:short)", "refs/heads"]),
+  ]);
+  const local = new Set(locals.split("\n"));
+  return remotes
+    .split("\n")
+    .filter((name) => name && name.includes("/") && !name.endsWith("/HEAD") && !local.has(name.slice(name.indexOf("/") + 1)))
+    .sort();
 }
 
 /** Creates the default worktrees folder with a `.gitignore` of `*`, so git never lists its contents. */
