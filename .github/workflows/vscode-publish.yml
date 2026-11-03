@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC hacia Microsoft Entra ID
+  id-token: write # OIDC para Trusted Publishing del Marketplace
 
 concurrency:
   group: vscode-publish
@@ -44,14 +44,7 @@ jobs:
           VSIX: ${{ steps.release.outputs.vsix }}
         run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$VSIX" --dir vsix
 
-      - name: Login to Azure (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Publish to Marketplace
+      - name: Publish to Marketplace (Trusted Publishing)
         env:
           VSIX: ${{ steps.release.outputs.vsix }}
-        run: bunx vsce publish --packagePath "vsix/$VSIX" --azure-credential
+        run: bunx vsce publish --packagePath "vsix/$VSIX" --oidc
