@@ -22,6 +22,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,3 +81,12 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VSIX: ${{ steps.version.outputs.vsix }}
         run: gh release create "$TAG" "$VSIX" --title "$TAG" --generate-notes
+
+  publish:
+    needs: release
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/vscode-publish.yml
+    with:
+      release: ${{ needs.release.outputs.tag }}

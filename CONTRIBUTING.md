@@ -130,7 +130,7 @@ Para empaquetar localmente: `bun run package`.
 
 ## Publicar en el VS Code Marketplace
 
-Tras crear un release con el workflow **Release**, ejecuta **Publish to VS Code Marketplace** (`vscode-publish.yml`) desde la pestaña Actions e indica el tag (por ejemplo `v0.0.18`). El workflow descarga el `.vsix` del release y lo publica con `vsce publish --oidc` (Trusted Publishing), sin tokens guardados ni Azure.
+El workflow **Release** llama automáticamente a `vscode-publish.yml` en un job `publish` tras crear el release. Para republicar un release existente, ejecuta **Publish to VS Code Marketplace** desde la pestaña Actions e indica el tag (por ejemplo `v0.0.18`). El workflow descarga el `.vsix` del release y lo publica con `vsce publish --oidc` (Trusted Publishing), sin tokens guardados ni Azure.
 
 Configuración única:
 
