@@ -127,3 +127,13 @@ workflow:
 5. Crea el release en GitHub con el `.vsix` adjunto y notas generadas automáticamente.
 
 Para empaquetar localmente: `bun run package`.
+
+## Publicar en el VS Code Marketplace
+
+Tras crear un release con el workflow **Release**, ejecuta **Publish to VS Code Marketplace** (`vscode-publish.yml`) desde la pestaña Actions e indica el tag (por ejemplo `v0.0.18`). El workflow descarga el `.vsix` del release y lo publica con `vsce --azure-credential`, autenticándose por OIDC (sin tokens guardados).
+
+Configuración única:
+
+1. En Microsoft Entra ID, registra una aplicación (o managed identity) y añade una *federated credential* de tipo GitHub Actions con entidad `Environment` = `vscode-marketplace` (repo `JonDotsoy/worktree`).
+2. En el [Marketplace](https://marketplace.visualstudio.com/manage) añade ese service principal como miembro del publisher `jondotsoy` con rol Contributor o superior.
+3. En GitHub crea el environment `vscode-marketplace` y las variables `AZURE_CLIENT_ID` y `AZURE_TENANT_ID` (no son secretos).
