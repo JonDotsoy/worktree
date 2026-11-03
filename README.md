@@ -3,6 +3,8 @@
 Extensión de Visual Studio Code para visualizar y gestionar los
 [git worktrees](https://git-scm.com/docs/git-worktree) de un repositorio sin salir del editor.
 
+[![Instalar desde el VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/jondotsoy.worktree?label=VS%20Code%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=jondotsoy.worktree)
+
 ![Vista de la extensión en VS Code](docs/screenshots/vscode.png)
 
 ## Resumen
@@ -62,6 +64,18 @@ La configuración y las descripciones se guardan automáticamente en `.git/_work
 
 ## Instalación
 
+### Desde el Marketplace (recomendado)
+
+Instala la extensión desde el
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jondotsoy.worktree),
+buscando **Worktree** en la vista de Extensiones, o desde la terminal:
+
+```sh
+code --install-extension jondotsoy.worktree
+```
+
+### Desde un archivo `.vsix`
+
 1. Descarga el archivo `.vsix` de la última versión en
    [Releases](https://github.com/JonDotsoy/worktree/releases).
 2. Instálalo en VS Code, con *Extensions → ⋯ → Install from VSIX…* o desde la terminal:
@@ -70,7 +84,7 @@ La configuración y las descripciones se guardan automáticamente en `.git/_work
    code --install-extension worktree-<versión>.vsix
    ```
 
-3. Abre un repositorio git y pulsa el icono de **Worktree** en la barra de actividades.
+Después, abre un repositorio git y pulsa el icono de **Worktree** en la barra de actividades.
 
 ## Seguridad
 
