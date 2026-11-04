@@ -23,6 +23,8 @@ export interface Worktree {
   description?: string;
   /** Marked with a star by the user, see `setWorktreeStarred`. */
   starred?: boolean;
+  /** The branch already has all its commits in the main branch (see `findMainBranch`) and has work of its own. */
+  merged?: boolean;
 }
 
 /** Parses the output of `git worktree list --porcelain`. */
@@ -84,6 +86,46 @@ async function commitDates(cwd: string, heads: string[]): Promise<Map<string, nu
   return dates;
 }
 
+async function resolveCommit(cwd: string, ref: string): Promise<string | undefined> {
+  try {
+    return (await git(cwd, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`])).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Branch the others are compared against: the configured base branch, else `develop` when it
+ * exists, else the remote default branch, else `main` or `master`. Returns undefined when none exists.
+ */
+export async function findMainBranch(cwd: string): Promise<string | undefined> {
+  const remoteHead = await git(cwd, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]).then((out) => out.trim(), () => "");
+  const candidates = [await getBaseBranch(cwd), "develop", remoteHead, "main", "master"].filter(Boolean);
+  for (const candidate of candidates) {
+    if (await resolveCommit(cwd, candidate)) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Sets `merged` on the worktrees whose branch is already contained in the main branch.
+ * The main branch itself and branches still at its tip (nothing of their own yet) are not marked.
+ */
+async function markMerged(cwd: string, worktrees: Worktree[]): Promise<void> {
+  const mainBranch = await findMainBranch(cwd);
+  const tip = mainBranch ? await resolveCommit(cwd, mainBranch) : undefined;
+  if (!mainBranch || !tip) return;
+  for (const worktree of worktrees) {
+    if (!worktree.branch || !worktree.head || worktree.head === tip || worktree.branch === mainBranch) continue;
+    try {
+      await execFileAsync("git", ["merge-base", "--is-ancestor", worktree.head, tip], { cwd });
+      worktree.merged = true;
+    } catch {
+      // Exit code 1 means not merged; any other failure just leaves the check off.
+    }
+  }
+}
+
 /** Moves the current worktree to the top, then the starred ones, keeping the order of the rest. */
 function currentFirst(worktrees: Worktree[]): Worktree[] {
   const rank = (w: Worktree) => (w.current ? 0 : w.starred ? 1 : 2);
@@ -104,6 +146,7 @@ export async function listWorktrees(cwd: string): Promise<Worktree[]> {
   for (const worktree of worktrees) {
     if (worktree.head) worktree.committedAt = dates.get(worktree.head);
   }
+  await markMerged(cwd, worktrees);
   const descriptions = await readDescriptions(cwd);
   for (const worktree of worktrees) {
     const description = descriptions[worktree.path];
