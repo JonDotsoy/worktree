@@ -419,6 +419,7 @@
     <hr role="separator">
     <button id="menu-copy-abs" type="button" role="menuitem"></button>
     <button id="menu-copy-rel" type="button" role="menuitem"></button>
+    <button id="menu-copy-branch" type="button" role="menuitem"></button>
     <hr id="menu-sep" role="separator">
     <button id="menu-delete" type="button" role="menuitem" class="danger"></button>
   </div>
@@ -483,6 +484,7 @@
     const search = document.getElementById("search");
     const empty = document.getElementById("empty");
     let query = "";
+    let lastFree = { local: [], remote: [] };
 
     /** Keeps the worktrees matching the search box, best match first; without a query, the list as is. */
     function filterWorktrees(worktrees) {
@@ -496,15 +498,29 @@
       return worktrees.filter((w) => [w.branch, w.path, w.description, w.head].some((value) => value?.toLowerCase().includes(needle)));
     }
 
+    /** Keeps the branch names matching the search box, best match first; without a query, the list as is. */
+    function filterBranches(branches) {
+      const text = query.trim();
+      if (!text) return branches;
+      if (Fuse) {
+        const fuse = new Fuse(branches, { keys: ["name"], threshold: 0.35, ignoreLocation: true });
+        return fuse.search(text).map((result) => result.item);
+      }
+      const needle = text.toLowerCase();
+      return branches.filter((b) => b.name.toLowerCase().includes(needle));
+    }
+
     search.addEventListener("input", () => {
       query = search.value;
       render(lastWorktrees);
+      renderFreeBranches(lastFree.local, lastFree.remote);
     });
     search.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && search.value) {
         event.preventDefault();
         search.value = query = "";
         render(lastWorktrees);
+        renderFreeBranches(lastFree.local, lastFree.remote);
       }
     });
 
@@ -592,7 +608,8 @@
 
     /** Lists the local branches no worktree has checked out. */
     function renderFreeBranches(local, remote) {
-      const branches = [...local.map((name) => ({ name })), ...remote.map((name) => ({ name, remote: true }))];
+      lastFree = { local, remote };
+      const branches = filterBranches([...local.map((name) => ({ name })), ...remote.map((name) => ({ name, remote: true }))]);
       document.getElementById("free-branches").hidden = branches.length === 0;
       const list = document.getElementById("free-branches-list");
       list.classList.toggle("compact", compactMode);
@@ -932,12 +949,23 @@
         message.textContent = ok ? t("path.copied", { text }) : t("path.copyFailed");
       });
     }
+    const menuCopyBranch = document.getElementById("menu-copy-branch");
+    setIcon(menuCopyBranch, "copy");
+    menuCopyBranch.append(t("branch.copy"));
+    menuCopyBranch.addEventListener("click", async () => {
+      hideMenu();
+      const text = menuBranchName;
+      const ok = await copyText(text);
+      message.className = ok ? "message" : "message error";
+      message.textContent = ok ? t("branch.copied", { text }) : t("branch.copyFailed");
+    });
     setIcon(menuDelete, "trash");
     menuDelete.append(t("delete"));
     /** Element that had focus before the menu opened, to give it back on close. */
     let menuReturnFocus;
     let menuPath;
     let menuWorktree;
+    let menuBranchName;
 
     const menuCreate = document.getElementById("menu-create");
     setIcon(menuCreate, "plus");
@@ -951,14 +979,18 @@
     /** Menu of a branch without worktree: its only entry creates the worktree. */
     function showBranchMenu(x, y, name, remote) {
       menuBranch = { name, remote };
-      for (const child of menu.children) child.hidden = child !== menuCreate;
+      menuBranchName = name;
+      for (const child of menu.children) child.hidden = child !== menuCreate && child !== menuCopyBranch;
       placeMenu(x, y);
     }
 
     function showMenu(x, y, worktree) {
       menuPath = worktree.path;
       menuWorktree = worktree;
+      menuBranchName = worktree.branch;
       for (const child of menu.children) child.hidden = child === menuCreate;
+      // A detached HEAD has no branch to copy.
+      menuCopyBranch.hidden = !worktree.branch;
       // The main worktree (and the one open in VS Code) cannot be removed, so no button.
       menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);
       setIcon(menuStar, "star");
