@@ -171,7 +171,7 @@
     .badge.current { background: var(--fg-strong); color: var(--bg, #fff); }
     .worktree.is-current { border-color: var(--focus); }
     .badge.merged { background: transparent; color: var(--vscode-testing-iconPassed, #388a34); padding: 0 2px; display: inline-flex; align-items: center; }
-    .badge.merged svg { width: 14px; height: 14px; }
+    .badge.merged svg { width: 16px; height: 16px; }
     .badge.main { background: var(--accent); color: var(--accent-fg); }
     .worktree { cursor: default; user-select: text; }
     .worktree:hover { background: var(--hover-bg); }
@@ -719,7 +719,7 @@
       badge.title = t("badge.merged");
       badge.setAttribute("role", "img");
       badge.setAttribute("aria-label", t("badge.merged"));
-      badge.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>';
+      badge.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M5 8.3l2.2 2.2L11 6"/></svg>';
       return badge;
     }
 
