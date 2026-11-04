@@ -25,6 +25,8 @@ export interface Worktree {
   starred?: boolean;
   /** The branch already has all its commits in the main branch (see `findMainBranch`) and has work of its own. */
   merged?: boolean;
+  /** Name of the main branch it was merged into, set together with `merged`. */
+  mergedInto?: string;
 }
 
 /** Parses the output of `git worktree list --porcelain`. */
@@ -120,6 +122,7 @@ async function markMerged(cwd: string, worktrees: Worktree[]): Promise<void> {
     try {
       await execFileAsync("git", ["merge-base", "--is-ancestor", worktree.head, tip], { cwd });
       worktree.merged = true;
+      worktree.mergedInto = mainBranch;
     } catch {
       // Exit code 1 means not merged; any other failure just leaves the check off.
     }

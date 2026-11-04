@@ -155,6 +155,7 @@ describe("merged worktrees", () => {
     g(repo, "worktree", "add", "-q", "-b", "fresh", "../fresh");
 
     const merged = Object.fromEntries((await listWorktrees(repo)).map((w) => [w.branch, w.merged ?? false]));
+    expect((await listWorktrees(repo)).find((w) => w.branch === "done")?.mergedInto).toBe("main");
     expect(merged).toEqual({ main: false, fresh: false, done: true, wip: false });
   });
 });

@@ -38,7 +38,7 @@
   "branches.create.hint": "Double-click to create its worktree and open it",
   "branches.creating": "Creating worktree for {branch}…",
   "badge.main": "main",
-  "badge.merged": "Merged into the main branch",
+  "badge.merged": "Merged into {branch}",
   "badge.noHead": "(no HEAD)",
   "time.lastCommit": "Last commit {when}",
   "time.now": "just now",
