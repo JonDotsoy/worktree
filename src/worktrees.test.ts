@@ -140,6 +140,26 @@ describe("listWorktrees", () => {
   });
 });
 
+describe("merged worktrees", () => {
+  test("marks branches contained in the main branch, except the main one and untouched ones", async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));
+    const repo = join(root, "app");
+    const g = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd });
+    g(root, "init", "-q", "-b", "main", repo);
+    g(repo, "commit", "-q", "--allow-empty", "-m", "init");
+    g(repo, "worktree", "add", "-q", "-b", "done", "../done");
+    g(repo, "worktree", "add", "-q", "-b", "wip", "../wip");
+    g(join(root, "done"), "commit", "-q", "--allow-empty", "-m", "done");
+    g(join(root, "wip"), "commit", "-q", "--allow-empty", "-m", "wip");
+    g(repo, "merge", "-q", "--no-ff", "done", "-m", "merge done");
+    g(repo, "worktree", "add", "-q", "-b", "fresh", "../fresh");
+
+    const merged = Object.fromEntries((await listWorktrees(repo)).map((w) => [w.branch, w.merged ?? false]));
+    expect((await listWorktrees(repo)).find((w) => w.branch === "done")?.mergedInto).toBe("main");
+    expect(merged).toEqual({ main: false, fresh: false, done: true, wip: false });
+  });
+});
+
 describe("base branch setting", () => {
   test("is stored under .git/_worktree_configs, validated, and used by createWorktree", async () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-test-")));

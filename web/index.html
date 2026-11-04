@@ -170,6 +170,20 @@
     }
     .badge.current { background: var(--fg-strong); color: var(--bg, #fff); }
     .worktree.is-current { border-color: var(--focus); }
+    .badge.merged { background: transparent; color: var(--vscode-testing-iconPassed, #388a34); padding: 0 2px; display: inline-flex; align-items: center; }
+    .badge.merged { position: relative; }
+    .badge.merged::after {
+      content: attr(data-tip);
+      position: absolute; left: 0; bottom: calc(100% + 6px);
+      padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+      background: var(--vscode-editorHoverWidget-background, #1f2328);
+      color: var(--vscode-editorHoverWidget-foreground, #fff);
+      border: 1px solid var(--vscode-editorHoverWidget-border, transparent);
+      font-size: 12px; font-weight: 400; pointer-events: none;
+      opacity: 0; transition: opacity 0.1s; z-index: 5;
+    }
+    .badge.merged:hover::after, .badge.merged:focus-visible::after { opacity: 1; }
+    .badge.merged svg { width: 16px; height: 16px; }
     .badge.main { background: var(--accent); color: var(--accent-fg); }
     .worktree { cursor: default; user-select: text; }
     .worktree:hover { background: var(--hover-bg); }
@@ -526,6 +540,7 @@
           if (!compactMode) title.append(starButton(worktree));
           if (worktree.current) title.append(el("span", "badge current", "current"));
           if (worktree.main) title.append(el("span", "badge main", t("badge.main")));
+          if (worktree.merged) title.append(mergedBadge(worktree));
           if (worktree.detached) title.append(el("span", "badge", "detached"));
           if (worktree.locked !== undefined) title.append(el("span", "badge", "locked"));
           if (worktree.prunable !== undefined) title.append(el("span", "badge", "prunable"));
@@ -708,6 +723,18 @@
       block.append(...view().children);
       block.startEdit = edit;
       return block;
+    }
+
+    /** Check shown on worktrees whose branch is already merged into the main branch. */
+    function mergedBadge(worktree) {
+      const badge = el("span", "badge merged");
+      const label = t("badge.merged", { branch: worktree.mergedInto ?? "" });
+      badge.dataset.tip = label;
+      badge.tabIndex = 0;
+      badge.setAttribute("role", "img");
+      badge.setAttribute("aria-label", label);
+      badge.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M5 8.3l2.2 2.2L11 6"/></svg>';
+      return badge;
     }
 
     /** Star toggle; the server answers with the reordered list, starred worktrees first. */
