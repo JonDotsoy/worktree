@@ -477,57 +477,55 @@
     import("/vendor/fuse.basic.min.mjs")
       .then((module) => {
         Fuse = module.default;
-        if (query) render(lastWorktrees);
+        if (query) renderAll();
       })
       .catch(() => {});
 
     const search = document.getElementById("search");
     const empty = document.getElementById("empty");
     let query = "";
-    let lastFree = { local: [], remote: [] };
 
     /** Keeps the worktrees matching the search box, best match first; without a query, the list as is. */
     function filterWorktrees(worktrees) {
-      const text = query.trim();
-      if (!text) return worktrees;
-      if (Fuse) {
-        const fuse = new Fuse(worktrees, { keys: ["branch", "path", "description", "head"], threshold: 0.35, ignoreLocation: true });
-        return fuse.search(text).map((result) => result.item);
-      }
-      const needle = text.toLowerCase();
-      return worktrees.filter((w) => [w.branch, w.path, w.description, w.head].some((value) => value?.toLowerCase().includes(needle)));
+      return filterItems(worktrees, ["branch", "path", "description", "head"]);
     }
 
-    /** Keeps the branch names matching the search box, best match first; without a query, the list as is. */
-    function filterBranches(branches) {
+    /** Same search for any list of objects, looking only at `keys`. */
+    function filterItems(items, keys) {
       const text = query.trim();
-      if (!text) return branches;
+      if (!text) return items;
       if (Fuse) {
-        const fuse = new Fuse(branches, { keys: ["name"], threshold: 0.35, ignoreLocation: true });
+        const fuse = new Fuse(items, { keys, threshold: 0.35, ignoreLocation: true });
         return fuse.search(text).map((result) => result.item);
       }
       const needle = text.toLowerCase();
-      return branches.filter((b) => b.name.toLowerCase().includes(needle));
+      return items.filter((item) => keys.some((key) => item[key]?.toLowerCase().includes(needle)));
+    }
+
+    /** The branches without a worktree received last, to redraw them while searching. */
+    let lastFreeBranches = [[], []];
+
+    function renderAll() {
+      render(lastWorktrees);
+      renderFreeBranches(...lastFreeBranches);
     }
 
     search.addEventListener("input", () => {
       query = search.value;
-      render(lastWorktrees);
-      renderFreeBranches(lastFree.local, lastFree.remote);
+      renderAll();
     });
     search.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && search.value) {
         event.preventDefault();
         search.value = query = "";
-        render(lastWorktrees);
-        renderFreeBranches(lastFree.local, lastFree.remote);
+        renderAll();
       }
     });
 
     function render(all) {
       lastWorktrees = all;
       const worktrees = filterWorktrees(all);
-      empty.hidden = worktrees.length > 0 || all.length === 0;
+      empty.hidden = true;
       list.classList.toggle("compact", compactMode);
       list.replaceChildren(
         ...worktrees.map((worktree) => {
@@ -608,9 +606,12 @@
 
     /** Lists the local branches no worktree has checked out. */
     function renderFreeBranches(local, remote) {
-      lastFree = { local, remote };
-      const branches = filterBranches([...local.map((name) => ({ name })), ...remote.map((name) => ({ name, remote: true }))]);
+      lastFreeBranches = [local, remote];
+      const all = [...local.map((name) => ({ name })), ...remote.map((name) => ({ name, remote: true }))];
+      const branches = filterItems(all, ["name"]);
       document.getElementById("free-branches").hidden = branches.length === 0;
+      // Nothing at all matches the search: say so (an empty repository has nothing to filter).
+      empty.hidden = Boolean(filterWorktrees(lastWorktrees).length || branches.length || (lastWorktrees.length === 0 && all.length === 0));
       const list = document.getElementById("free-branches-list");
       list.classList.toggle("compact", compactMode);
       list.replaceChildren(
@@ -959,13 +960,13 @@
       message.className = ok ? "message" : "message error";
       message.textContent = ok ? t("branch.copied", { text }) : t("branch.copyFailed");
     });
+    let menuBranchName;
     setIcon(menuDelete, "trash");
     menuDelete.append(t("delete"));
     /** Element that had focus before the menu opened, to give it back on close. */
     let menuReturnFocus;
     let menuPath;
     let menuWorktree;
-    let menuBranchName;
 
     const menuCreate = document.getElementById("menu-create");
     setIcon(menuCreate, "plus");
@@ -989,7 +990,6 @@
       menuWorktree = worktree;
       menuBranchName = worktree.branch;
       for (const child of menu.children) child.hidden = child === menuCreate;
-      // A detached HEAD has no branch to copy.
       menuCopyBranch.hidden = !worktree.branch;
       // The main worktree (and the one open in VS Code) cannot be removed, so no button.
       menuDelete.hidden = menuSep.hidden = Boolean(worktree.main || worktree.current);

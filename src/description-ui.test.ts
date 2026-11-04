@@ -21,6 +21,7 @@ beforeAll(async () => {
   git(dir, "init", "-q", "-b", "main", app);
   git(app, "commit", "-q", "--allow-empty", "-m", "init");
   git(app, "worktree", "add", "-q", "-b", "feat/x", join(dir, "app-x"));
+  git(app, "branch", "fix/libre");
   await setWorktreeDescription(app, join(dir, "app-x"), "Nota existente");
   server = await startWebServer(resolve(import.meta.dir, "..", "web"), { cwd: () => app, open: async (path: string) => void opened.push(path) });
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined });
@@ -130,6 +131,40 @@ test("el menú copia la ruta absoluta y la relativa a la carpeta abierta", async
   await page.locator("#menu-copy-rel").click();
   await page.locator("#message", { hasText: "Copiado: ../app-x" }).waitFor();
   expect(await page.evaluate("window.__copied")).toBe("../app-x");
+  await page.close();
+});
+
+test("el buscador también filtra las ramas sin worktree", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  await page.locator("#free-branches li", { hasText: "fix/libre" }).waitFor();
+  await page.locator("#search").fill("main");
+  await page.locator("#free-branches").waitFor({ state: "hidden" });
+  expect(await page.locator("#list li").count()).toBe(1);
+  await page.locator("#search").fill("fix/libre");
+  await page.locator("#free-branches li", { hasText: "fix/libre" }).waitFor();
+  expect(await page.locator("#list li").count()).toBe(0);
+  expect(await page.locator("#empty").isVisible()).toBe(false);
+  await page.locator("#search").fill("zzzzzz");
+  await page.locator("#empty").waitFor();
+  await page.close();
+});
+
+test("el menú de worktree y de rama copian el nombre de la rama", async () => {
+  const page = await browser.newPage();
+  await page.goto(server.url);
+  await page.evaluate("navigator.clipboard.writeText = async (text) => { window.__copied = text; }");
+  const item = page.locator("#list li", { hasText: "main" });
+  await item.waitFor();
+  await item.click({ button: "right", position: { x: 40, y: 20 } });
+  await page.locator("#menu-copy-branch").click();
+  await page.locator("#message", { hasText: "Copiado: main" }).waitFor();
+  expect(await page.evaluate("window.__copied")).toBe("main");
+
+  await page.locator("#free-branches li", { hasText: "fix/libre" }).click({ button: "right", position: { x: 40, y: 20 } });
+  await page.locator("#menu-copy-branch").click();
+  await page.locator("#message", { hasText: "Copiado: fix/libre" }).waitFor();
+  expect(await page.evaluate("window.__copied")).toBe("fix/libre");
   await page.close();
 });
 
